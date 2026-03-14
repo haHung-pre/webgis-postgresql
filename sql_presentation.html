@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>SQL Presentation — KCN Quang Hưng</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128;
+  --border: rgba(48,54,61,1); --border2: rgba(57,255,20,.25);
+  --g: #39ff14; --g2: #1f8c09; --g3: rgba(57,255,20,.08);
+  --b: #58a6ff; --b2: #1f6feb;
+  --y: #f0c147; --r: #f85149; --p: #bc8cff; --o: #ffa657;
+  --txt: #e6edf3; --muted: #7d8590; --muted2: #484f58;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-family:'Rajdhani',sans-serif;overflow:hidden;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:3px;}
+
+/* ── SCANLINES ── */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 3px);}
+
+/* ── TOP BAR ── */
+#topbar{position:fixed;top:0;left:0;right:0;height:48px;z-index:200;
+  background:rgba(13,17,23,.97);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:0;padding:0;}
+.tb-logo{padding:0 16px;display:flex;align-items:center;gap:8px;border-right:1px solid var(--border);height:100%;}
+.tb-logo span{font-size:18px;}
+.tb-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--g);letter-spacing:2px;text-shadow:0 0 8px var(--g);}
+.tb-title small{display:block;font-size:9px;color:var(--muted);letter-spacing:1px;text-shadow:none;}
+.tb-mid{display:flex;align-items:center;gap:0;height:100%;flex:1;}
+.tb-chapter{padding:0 14px;height:100%;display:flex;align-items:center;border-right:1px solid var(--border);cursor:pointer;transition:background .15s;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:1px;}
+.tb-chapter:hover{background:var(--g3);color:var(--g);}
+.tb-chapter.on{background:rgba(57,255,20,.1);color:var(--g);border-bottom:2px solid var(--g);}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 14px;}
+#tb-clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--g);text-shadow:0 0 8px var(--g);}
+#tb-progress-txt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+.tb-btn{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;letter-spacing:1px;border-radius:4px;}
+.tb-btn:hover{border-color:var(--g);color:var(--g);background:var(--g3);}
+
+/* ── PROGRESS BAR ── */
+#progress-bar{position:fixed;top:48px;left:0;right:0;height:3px;z-index:200;background:var(--border);}
+#progress-fill{height:100%;background:linear-gradient(90deg,var(--g2),var(--g));transition:width .4s ease;box-shadow:0 0 8px var(--g);}
+
+/* ── MAIN LAYOUT ── */
+#main{position:fixed;top:51px;left:0;right:0;bottom:52px;display:flex;overflow:hidden;}
+
+/* ── SLIDE PANEL (left nav) ── */
+#slide-nav{width:200px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;}
+.sn-group{border-bottom:1px solid var(--border);}
+.sn-group-title{padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--muted2);text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:space-between;}
+.sn-group-title:hover{color:var(--muted);}
+.sn-group-title::after{content:'▾';font-size:8px;}
+.sn-group.collapsed .sn-group-title::after{content:'▸';}
+.sn-group.collapsed .sn-slides{display:none;}
+.sn-slide{padding:7px 10px 7px 16px;cursor:pointer;transition:background .12s;border-left:2px solid transparent;display:flex;align-items:center;gap:6px;}
+.sn-slide:hover{background:var(--g3);}
+.sn-slide.on{background:rgba(57,255,20,.1);border-left-color:var(--g);}
+.sn-num{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);min-width:18px;}
+.sn-label{font-size:11px;color:var(--muted);line-height:1.3;}
+.sn-slide.on .sn-label{color:var(--g);}
+.sn-slide.on .sn-num{color:var(--g2);}
+
+/* ── CONTENT AREA ── */
+#content{flex:1;overflow:hidden;position:relative;}
+.slide{position:absolute;inset:0;overflow:hidden;transition:opacity .35s ease,transform .35s ease;opacity:0;pointer-events:none;transform:translateX(40px);}
+.slide.on{opacity:1;pointer-events:all;transform:translateX(0);}
+.slide.out{opacity:0;transform:translateX(-40px);}
+
+/* ── SLIDE INNER ── */
+.s-wrap{height:100%;overflow-y:auto;padding:24px 32px 32px;}
+
+/* ── SLIDE HEADER ── */
+.s-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.s-icon{font-size:28px;flex-shrink:0;margin-top:2px;}
+.s-titles h2{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--txt);letter-spacing:1px;line-height:1.2;}
+.s-titles p{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
+.s-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:9px;margin-right:6px;margin-top:4px;}
+.bd-g{background:rgba(57,255,20,.12);color:var(--g);border:1px solid rgba(57,255,20,.25);}
+.bd-b{background:rgba(88,166,255,.1);color:var(--b);border:1px solid rgba(88,166,255,.2);}
+.bd-y{background:rgba(240,193,71,.1);color:var(--y);border:1px solid rgba(240,193,71,.2);}
+.bd-r{background:rgba(248,81,73,.1);color:var(--r);border:1px solid rgba(248,81,73,.2);}
+.bd-p{background:rgba(188,140,255,.1);color:var(--p);border:1px solid rgba(188,140,255,.2);}
+
+/* ── EXPLAIN BOX ── */
+.explain{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--b);border-radius:4px;padding:12px 16px;margin-bottom:18px;font-size:14px;line-height:1.7;color:#c9d1d9;}
+.explain strong{color:var(--b);}
+.explain .kw{color:var(--y);font-weight:700;}
+
+/* ── CODE BLOCK ── */
+.code-wrap{position:relative;margin-bottom:18px;border-radius:6px;overflow:hidden;border:1px solid var(--border);box-shadow:0 4px 24px rgba(0,0,0,.4);}
+.code-bar{background:var(--bg3);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.code-bar-left{display:flex;align-items:center;gap:8px;}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dot-r{background:#f85149;}.dot-y{background:#f0c147;}.dot-g{background:#3fb950;}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-left:4px;}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);background:transparent;border:1px solid var(--border);padding:3px 9px;border-radius:3px;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+.copy-btn:hover{color:var(--g);border-color:var(--g);background:var(--g3);}
+.copy-btn.copied{color:var(--g);border-color:var(--g);}
+pre{background:#010409;padding:18px 20px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.75;}
+.line-nums{display:inline-block;min-width:28px;text-align:right;margin-right:16px;color:var(--muted2);user-select:none;font-size:11px;}
+/* Token colors */
+.kw{color:#ff7b72;} .kw2{color:#79c0ff;} .fn{color:#d2a8ff;} .st{color:#a5d6ff;}
+.cm{color:#8b949e;font-style:italic;} .nm{color:#f0c147;} .op{color:#e3b341;}
+.tp{color:#7ee787;} .id{color:#e6edf3;}
+
+/* ── RESULT TABLE ── */
+.result-table{width:100%;border-collapse:collapse;margin-bottom:18px;font-family:'JetBrains Mono',monospace;font-size:12px;}
+.result-table th{background:var(--bg3);color:var(--b);padding:7px 12px;text-align:left;border:1px solid var(--border);font-size:11px;letter-spacing:1px;}
+.result-table td{padding:6px 12px;border:1px solid var(--border);color:var(--txt);}
+.result-table tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+.result-table .red{color:var(--r);}.result-table .grn{color:var(--g);}.result-table .yel{color:var(--y);}
+
+/* ── INFO CARDS ── */
+.cards{display:grid;gap:12px;margin-bottom:18px;}
+.cards-2{grid-template-columns:1fr 1fr;}
+.cards-3{grid-template-columns:1fr 1fr 1fr;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px 16px;}
+.card-g{border-left:3px solid var(--g);} .card-b{border-left:3px solid var(--b);}
+.card-y{border-left:3px solid var(--y);} .card-r{border-left:3px solid var(--r);}
+.card h4{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;}
+.card .val{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;}
+.card p{font-size:12px;color:var(--muted);margin-top:4px;}
+.cg .val{color:var(--g);text-shadow:0 0 12px var(--g);}
+.cb .val{color:var(--b);}  .cy .val{color:var(--y);} .cr .val{color:var(--r);}
+
+/* ── BOTTOM NAV ── */
+#botnav{position:fixed;bottom:0;left:0;right:0;height:52px;z-index:200;
+  background:rgba(13,17,23,.97);border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;}
+#botnav-left{display:flex;align-items:center;gap:8px;}
+#botnav-right{display:flex;align-items:center;gap:8px;}
+.nav-btn{padding:6px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all .2s;border-radius:4px;letter-spacing:1px;}
+.nav-btn:hover{border-color:var(--g);color:var(--g);background:var(--g3);}
+.nav-btn.primary{border-color:var(--g);color:var(--g);background:rgba(57,255,20,.08);}
+.nav-btn.primary:hover{background:rgba(57,255,20,.18);}
+#slide-indicator{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);}
+#slide-title-bot{font-family:'Rajdhani',sans-serif;font-size:14px;color:var(--txt);font-weight:600;}
+.kbd{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* ── SPEAKER NOTES ── */
+#notes-panel{position:fixed;bottom:52px;left:200px;right:0;background:rgba(13,17,23,.97);border-top:1px solid var(--border2);z-index:150;transition:transform .3s ease;transform:translateY(100%);}
+#notes-panel.open{transform:translateY(0);}
+.notes-hdr{padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.notes-hdr h4{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--g);letter-spacing:2px;}
+.notes-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+.notes-body{padding:14px 18px;font-size:15px;line-height:1.8;color:#c9d1d9;max-height:160px;overflow-y:auto;}
+.notes-body strong{color:var(--g);} .notes-body em{color:var(--y);}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="tb-logo">
+    <span>☣️</span>
+    <div>
+      <div class="tb-title">SQL PRESENTATION</div>
+      <div class="tb-title"><small>KCN Quang Hưng · PostgreSQL + PostGIS</small></div>
+    </div>
+  </div>
+  <div class="tb-mid" id="chapter-tabs"></div>
+  <div class="tb-right">
+    <span id="tb-progress-txt">1 / 14</span>
+    <div id="tb-clock">--:--:--</div>
+    <button class="tb-btn" onclick="toggleNotes()">💬 Notes</button>
+    <button class="tb-btn" onclick="toggleNav()">☰</button>
+  </div>
+</div>
+
+<div id="progress-bar"><div id="progress-fill" style="width:7%"></div></div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="slide-nav" id="slide-nav"></div>
+  <div id="content"></div>
+</div>
+
+<!-- NOTES -->
+<div id="notes-panel">
+  <div class="notes-hdr">
+    <h4>💬 SPEAKER NOTES — NÓI GÌ</h4>
+    <button class="notes-close" onclick="toggleNotes()">✕</button>
+  </div>
+  <div class="notes-body" id="notes-body">...</div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="botnav">
+  <div id="botnav-left">
+    <button class="nav-btn" onclick="prev()">◀ Trước</button>
+    <span id="slide-indicator">01 / 14</span>
+    <button class="nav-btn primary" onclick="next()">Tiếp ▶</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span id="slide-title-bot"></span>
+  </div>
+  <div id="botnav-right">
+    <span class="kbd">←</span><span class="kbd">→</span>
+    <span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;">NAVIGATE</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  SLIDE DATA
+// ═══════════════════════════════════════════════════
+const SLIDES = [
+
+// ── CHAPTER 1: GIỚI THIỆU ──────────────────────────
+{
+  chapter:"Giới thiệu", icon:"☣️", title:"Tổng quan CSDL Không Gian",
+  sub:"PostgreSQL · PostGIS · EPSG:4326 · KCN Quang Hưng",
+  badges:[["DBMS","b"],["PostGIS","g"],["Buổi 1","y"]],
+  notes:`Chào thầy, nhóm em xây dựng CSDL không gian quản lý <strong>bãi rác KCN Quang Hưng, Hải Phòng</strong> bằng PostgreSQL + PostGIS. File SQL này chứa toàn bộ: <em>tạo database → tạo bảng → import shapefile → 16 truy vấn không gian.</em>`,
+  body:`
+<div class="cards cards-3">
+  <div class="card card-r cg"><h4>Bãi Rác</h4><div class="val cr">11</div><p>Point · EPSG:4326</p></div>
+  <div class="card card-b cb"><h4>Tòa Nhà</h4><div class="val cb">174</div><p>Polygon · CN + Dân cư</p></div>
+  <div class="card card-g cg"><h4>Đường</h4><div class="val cg">110</div><p>LineString · 2 làn</p></div>
+</div>
+<div class="explain">
+  <strong>CSDL không gian</strong> cho phép lưu trữ và truy vấn dữ liệu địa lý — tọa độ, hình học, khoảng cách — trực tiếp trong SQL. PostGIS biến PostgreSQL thành <span class="kw">GIS Database</span> đầy đủ: hỗ trợ Point, Line, Polygon và 300+ hàm không gian như ST_Buffer, ST_Distance, ST_Intersects.
+</div>
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Kiến trúc tổng quan</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Database: quangHungGIS</span>
+<span class="line-nums">2</span><span class="cm">-- Extension: postgis, postgis_topology</span>
+<span class="line-nums">3</span><span class="cm">-- Tables: garbage · buildings · roads · kcn_bounds</span>
+<span class="line-nums">4</span><span class="cm">-- SRID: 4326 (WGS84) — chuẩn web map</span>
+<span class="line-nums">5</span><span class="cm">-- Index: GIST spatial index trên tất cả bảng</span>
+<span class="line-nums">6</span>
+<span class="line-nums">7</span><span class="cm">-- Tọa độ dữ liệu:</span>
+<span class="line-nums">8</span><span class="cm">--   Gốc (Shapefile): VN-2000  EPSG:3405</span>
+<span class="line-nums">9</span><span class="cm">--   Sau import:      WGS84   EPSG:4326</span>
+<span class="line-nums">10</span><span class="cm">--   Vị trí: 106.61°E  20.83°N  (Hải Phòng)</span></pre>
+</div>`
+},
+
+{
+  chapter:"Giới thiệu", icon:"🐘", title:"Tạo Database & Bật PostGIS",
+  sub:"CREATE DATABASE · CREATE EXTENSION · Phần 1 trong file SQL",
+  badges:[["DDL","b"],["Extension","g"]],
+  notes:`Đây là bước đầu tiên: <strong>tạo database</strong> với encoding UTF-8 để hỗ trợ tiếng Việt, sau đó <strong>bật extension PostGIS</strong>. Câu lệnh <em>CREATE EXTENSION postgis</em> sẽ thêm kiểu dữ liệu geometry và toàn bộ hàm không gian vào database.`,
+  body:`
+<div class="explain">Sau khi cài PostgreSQL + PostGIS, mỗi database cần <span class="kw">CREATE EXTENSION</span> riêng để bật chức năng GIS. Thiếu bước này thì kiểu <strong>GEOMETRY</strong> và các hàm <strong>ST_*</strong> sẽ không tồn tại.</div>
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Phần 1: Khởi tạo</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- 1.1 Tạo CSDL với encoding UTF-8</span>
+<span class="line-nums">2</span><span class="kw">CREATE DATABASE</span> <span class="id">quangHungGIS</span>
+<span class="line-nums">3</span>    <span class="kw">ENCODING</span> = <span class="st">'UTF8'</span>
+<span class="line-nums">4</span>    <span class="kw">LC_COLLATE</span> = <span class="st">'vi_VN.UTF-8'</span>
+<span class="line-nums">5</span>    <span class="kw">TEMPLATE</span> = <span class="id">template0</span>;
+<span class="line-nums">6</span>
+<span class="line-nums">7</span><span class="op">\c</span> <span class="id">quangHungGIS</span>;  <span class="cm">-- kết nối vào database</span>
+<span class="line-nums">8</span>
+<span class="line-nums">9</span><span class="cm">-- 1.2 Bật PostGIS extension (bắt buộc)</span>
+<span class="line-nums">10</span><span class="kw">CREATE EXTENSION IF NOT EXISTS</span> <span class="fn">postgis</span>;
+<span class="line-nums">11</span><span class="kw">CREATE EXTENSION IF NOT EXISTS</span> <span class="fn">postgis_topology</span>;
+<span class="line-nums">12</span>
+<span class="line-nums">13</span><span class="cm">-- Kiểm tra phiên bản đã cài</span>
+<span class="line-nums">14</span><span class="kw">SELECT</span> <span class="fn">postgis_full_version</span>();</pre>
+</div>
+<div class="explain"><strong>Kết quả mong đợi:</strong> <span class="kw">POSTGIS="3.4.x" PGSQL="15"</span> — nếu thấy dòng này là cài đặt thành công.</div>`
+},
+
+// ── CHAPTER 2: TẠO BẢNG ────────────────────────────
+{
+  chapter:"Tạo Bảng", icon:"🗄️", title:"Bảng garbage — Bãi Rác",
+  sub:"CREATE TABLE · GEOMETRY(Point,4326) · CHECK constraint",
+  badges:[["Point","r"],["GEOMETRY","g"],["11 rows","r"]],
+  notes:`Bảng <strong>garbage</strong> lưu 11 điểm bãi rác. Điểm mấu chốt là cột <em>geom GEOMETRY(Point, 4326)</em> — kiểu Point, hệ tọa độ WGS84. Khi thầy hỏi tại sao dùng 4326 thay vì 3405 thì trả lời: 4326 là WGS84 chuẩn web map, dùng được trực tiếp với Leaflet/Google Maps mà không cần chuyển đổi.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Bảng garbage</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="kw">CREATE TABLE</span> <span class="id">garbage</span> (
+<span class="line-nums">2</span>    <span class="id">id</span>             <span class="tp">SERIAL</span> <span class="kw">PRIMARY KEY</span>,
+<span class="line-nums">3</span>    <span class="id">ten</span>            <span class="tp">VARCHAR</span>(<span class="nm">200</span>),
+<span class="line-nums">4</span>    <span class="id">loai_chat_thai</span> <span class="tp">VARCHAR</span>(<span class="nm">100</span>),
+<span class="line-nums">5</span>    <span class="id">muc_doc_hai</span>   <span class="tp">VARCHAR</span>(<span class="nm">20</span>) <span class="kw">DEFAULT</span> <span class="st">'Cao'</span>
+<span class="line-nums">6</span>        <span class="kw">CHECK</span> (<span class="id">muc_doc_hai</span> <span class="kw">IN</span> (
+<span class="line-nums">7</span>            <span class="st">'Thấp'</span>, <span class="st">'Trung bình'</span>, <span class="st">'Cao'</span>, <span class="st">'Rất cao'</span>)),
+<span class="line-nums">8</span>    <span class="id">geom</span>           <span class="tp">GEOMETRY</span>(<span class="kw2">Point</span>, <span class="nm">4326</span>) <span class="kw">NOT NULL</span>
+<span class="line-nums">9</span>                   <span class="cm">-- ↑ kiểu Point, SRID WGS84</span>
+<span class="line-nums">10</span>);</pre>
+</div>
+<div class="cards cards-2">
+  <div class="card card-g"><h4>Giải thích cột geom</h4><p><strong style="color:var(--g)">GEOMETRY(Point, 4326)</strong><br>Point = kiểu hình học điểm<br>4326 = WGS84 (lon/lat độ thập phân)</p></div>
+  <div class="card card-y"><h4>CHECK constraint</h4><p>Ràng buộc <strong style="color:var(--y)">muc_doc_hai</strong> chỉ nhận 4 giá trị hợp lệ — đảm bảo toàn vẹn dữ liệu</p></div>
+</div>`
+},
+
+{
+  chapter:"Tạo Bảng", icon:"🏢", title:"Bảng buildings — Tòa Nhà",
+  sub:"CREATE TABLE · GEOMETRY(Polygon,4326) · CHECK nature",
+  badges:[["Polygon","b"],["174 rows","b"],["Industrial + Residential","y"]],
+  notes:`Bảng <strong>buildings</strong> có 174 tòa nhà, phân loại Industrial (6 cái) và Residential (168 cái). Cột <em>nature</em> có CHECK constraint chỉ nhận 2 giá trị. Geometry là Polygon vì tòa nhà có diện tích.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Bảng buildings</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="kw">CREATE TABLE</span> <span class="id">buildings</span> (
+<span class="line-nums">2</span>    <span class="id">id</span>       <span class="tp">SERIAL</span> <span class="kw">PRIMARY KEY</span>,
+<span class="line-nums">3</span>    <span class="id">nature</span>   <span class="tp">VARCHAR</span>(<span class="nm">50</span>) <span class="kw">NOT NULL</span>
+<span class="line-nums">4</span>        <span class="kw">CHECK</span> (<span class="id">nature</span> <span class="kw">IN</span> (<span class="st">'Industrial'</span>, <span class="st">'Residential'</span>)),
+<span class="line-nums">5</span>    <span class="id">company</span>  <span class="tp">VARCHAR</span>(<span class="nm">10</span>),  <span class="cm">-- Tên công ty A–Y</span>
+<span class="line-nums">6</span>    <span class="id">geom</span>     <span class="tp">GEOMETRY</span>(<span class="kw2">Polygon</span>, <span class="nm">4326</span>) <span class="kw">NOT NULL</span>
+<span class="line-nums">7</span>);
+<span class="line-nums">8</span>
+<span class="line-nums">9</span><span class="cm">-- Xem phân bố loại tòa nhà</span>
+<span class="line-nums">10</span><span class="kw">SELECT</span> <span class="id">nature</span>, <span class="fn">COUNT</span>(*) <span class="kw">AS</span> <span class="id">so_luong</span>
+<span class="line-nums">11</span><span class="kw">FROM</span> <span class="id">buildings</span>
+<span class="line-nums">12</span><span class="kw">GROUP BY</span> <span class="id">nature</span>;</pre>
+</div>
+<table class="result-table"><tr><th>nature</th><th>so_luong</th></tr><tr><td class="yel">Industrial</td><td class="yel">6</td></tr><tr><td class="grn">Residential</td><td class="grn">168</td></tr></table>`
+},
+
+{
+  chapter:"Tạo Bảng", icon:"🛣️", title:"Bảng roads & kcn_bounds",
+  sub:"LineString · Polygon · GIST Index",
+  badges:[["LineString","g"],["Polygon","b"],["GIST Index","p"]],
+  notes:`Bảng <strong>roads</strong> dùng kiểu LineString vì đường là đường thẳng. Bảng <strong>kcn_bounds</strong> là 1 Polygon duy nhất bao toàn bộ KCN. Sau khi tạo bảng, tạo ngay <strong>GIST index</strong> — đây là loại index không gian đặc biệt của PostGIS, giúp các truy vấn ST_* nhanh hơn hàng trăm lần.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — roads, kcn_bounds, GIST index</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="kw">CREATE TABLE</span> <span class="id">roads</span> (
+<span class="line-nums">2</span>    <span class="id">id</span>        <span class="tp">SERIAL</span> <span class="kw">PRIMARY KEY</span>,
+<span class="line-nums">3</span>    <span class="id">nb_lanes</span>  <span class="tp">INT</span> <span class="kw">DEFAULT</span> <span class="nm">2</span>,
+<span class="line-nums">4</span>    <span class="id">chieu_dai</span> <span class="tp">FLOAT</span>,          <span class="cm">-- tính sau bằng ST_Length</span>
+<span class="line-nums">5</span>    <span class="id">geom</span>      <span class="tp">GEOMETRY</span>(<span class="kw2">LineString</span>, <span class="nm">4326</span>) <span class="kw">NOT NULL</span>
+<span class="line-nums">6</span>);
+<span class="line-nums">7</span>
+<span class="line-nums">8</span><span class="kw">CREATE TABLE</span> <span class="id">kcn_bounds</span> (
+<span class="line-nums">9</span>    <span class="id">id</span>         <span class="tp">SERIAL</span> <span class="kw">PRIMARY KEY</span>,
+<span class="line-nums">10</span>    <span class="id">ten_kcn</span>    <span class="tp">VARCHAR</span>(<span class="nm">200</span>),
+<span class="line-nums">11</span>    <span class="id">dien_tich</span>  <span class="tp">FLOAT</span>,
+<span class="line-nums">12</span>    <span class="id">geom</span>       <span class="tp">GEOMETRY</span>(<span class="kw2">Polygon</span>, <span class="nm">4326</span>) <span class="kw">NOT NULL</span>
+<span class="line-nums">13</span>);
+<span class="line-nums">14</span>
+<span class="line-nums">15</span><span class="cm">-- ★ GIST Index — tăng tốc TẤT CẢ truy vấn ST_*</span>
+<span class="line-nums">16</span><span class="kw">CREATE INDEX</span> <span class="id">idx_buildings_geom</span> <span class="kw">ON</span> <span class="id">buildings</span>  <span class="kw">USING GIST</span> (<span class="id">geom</span>);
+<span class="line-nums">17</span><span class="kw">CREATE INDEX</span> <span class="id">idx_roads_geom</span>     <span class="kw">ON</span> <span class="id">roads</span>      <span class="kw">USING GIST</span> (<span class="id">geom</span>);
+<span class="line-nums">18</span><span class="kw">CREATE INDEX</span> <span class="id">idx_garbage_geom</span>   <span class="kw">ON</span> <span class="id">garbage</span>    <span class="kw">USING GIST</span> (<span class="id">geom</span>);
+<span class="line-nums">19</span><span class="kw">ANALYZE</span> <span class="id">buildings</span>; <span class="kw">ANALYZE</span> <span class="id">roads</span>; <span class="kw">ANALYZE</span> <span class="id">garbage</span>;</pre>
+</div>`
+},
+
+// ── CHAPTER 3: IMPORT ──────────────────────────────
+{
+  chapter:"Import Data", icon:"📥", title:"Import Shapefile với shp2pgsql",
+  sub:"VN-2000 EPSG:3405 → WGS84 EPSG:4326",
+  badges:[["shp2pgsql","y"],["ST_Transform","g"],["VN-2000→WGS84","b"]],
+  notes:`shp2pgsql là công cụ dòng lệnh đi kèm PostGIS. Tham số quan trọng nhất là <strong>-s 3405:4326</strong> — nghĩa là chuyển từ hệ tọa độ VN-2000 sang WGS84 khi import. Tham số <em>-I</em> tạo GIST index tự động.`,
+  body:`
+<div class="explain">File shapefile dùng <strong>VN-2000 (EPSG:3405)</strong> — hệ tọa độ quốc gia Việt Nam. Khi import vào PostGIS, dùng <span class="kw">-s 3405:4326</span> để chuyển sang WGS84 tự động.</div>
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">Terminal — shp2pgsql</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm"># Import bãi rác (Point)</span>
+<span class="line-nums">2</span><span class="fn">shp2pgsql</span> -I -s <span class="nm">3405</span>:<span class="nm">4326</span> -W <span class="st">UTF-8</span> \
+<span class="line-nums">3</span>  garbadge.shp public.garbage | \
+<span class="line-nums">4</span>  psql -U postgres -d quangHungGIS
+<span class="line-nums">5</span>
+<span class="line-nums">6</span><span class="cm"># Import tòa nhà (Polygon)</span>
+<span class="line-nums">7</span><span class="fn">shp2pgsql</span> -I -s <span class="nm">3405</span>:<span class="nm">4326</span> -W <span class="st">UTF-8</span> \
+<span class="line-nums">8</span>  building.shp public.buildings | \
+<span class="line-nums">9</span>  psql -U postgres -d quangHungGIS
+<span class="line-nums">10</span>
+<span class="line-nums">11</span><span class="cm"># Import đường (Polyline)</span>
+<span class="line-nums">12</span><span class="fn">shp2pgsql</span> -I -s <span class="nm">3405</span>:<span class="nm">4326</span> -W <span class="st">UTF-8</span> \
+<span class="line-nums">13</span>  road.shp public.roads | psql -U postgres -d quangHungGIS</pre>
+</div>
+<div class="cards cards-3">
+  <div class="card card-r cr"><h4>-I</h4><p>Tạo GIST spatial index tự động</p></div>
+  <div class="card card-b cb"><h4>-s 3405:4326</h4><p>Chuyển VN-2000 → WGS84</p></div>
+  <div class="card card-g cg"><h4>-W UTF-8</h4><p>Hỗ trợ ký tự tiếng Việt</p></div>
+</div>`
+},
+
+{
+  chapter:"Import Data", icon:"✅", title:"Kiểm tra dữ liệu sau import",
+  sub:"geometry_columns · COUNT · ST_IsValid",
+  badges:[["Verify","g"],["ST_IsValid","b"]],
+  notes:`Sau khi import, luôn kiểm tra: <strong>đếm số dòng</strong>, xem <strong>geometry_columns</strong>, và chạy <strong>ST_IsValid</strong> để phát hiện geometry lỗi. Nếu có lỗi thì dùng ST_MakeValid để sửa.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Kiểm tra sau import</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Đếm số dòng mỗi bảng</span>
+<span class="line-nums">2</span><span class="kw">SELECT</span> <span class="st">'garbage'</span>   <span class="kw">AS</span> <span class="id">bang</span>, <span class="fn">COUNT</span>(*) <span class="kw">FROM</span> <span class="id">garbage</span>   <span class="kw">UNION ALL</span>
+<span class="line-nums">3</span><span class="kw">SELECT</span> <span class="st">'buildings'</span> <span class="kw">AS</span> <span class="id">bang</span>, <span class="fn">COUNT</span>(*) <span class="kw">FROM</span> <span class="id">buildings</span> <span class="kw">UNION ALL</span>
+<span class="line-nums">4</span><span class="kw">SELECT</span> <span class="st">'roads'</span>     <span class="kw">AS</span> <span class="id">bang</span>, <span class="fn">COUNT</span>(*) <span class="kw">FROM</span> <span class="id">roads</span>     <span class="kw">UNION ALL</span>
+<span class="line-nums">5</span><span class="kw">SELECT</span> <span class="st">'kcn_bounds'</span><span class="kw">AS</span> <span class="id">bang</span>, <span class="fn">COUNT</span>(*) <span class="kw">FROM</span> <span class="id">kcn_bounds</span>;
+<span class="line-nums">6</span>
+<span class="line-nums">7</span><span class="cm">-- Xem tọa độ bãi rác</span>
+<span class="line-nums">8</span><span class="kw">SELECT</span> <span class="id">id</span>, <span class="fn">ST_X</span>(<span class="id">geom</span>) <span class="kw">AS</span> <span class="id">lon</span>, <span class="fn">ST_Y</span>(<span class="id">geom</span>) <span class="kw">AS</span> <span class="id">lat</span>
+<span class="line-nums">9</span><span class="kw">FROM</span> <span class="id">garbage</span>;
+<span class="line-nums">10</span>
+<span class="line-nums">11</span><span class="cm">-- Kiểm tra geometry hợp lệ</span>
+<span class="line-nums">12</span><span class="kw">SELECT</span> <span class="id">id</span>, <span class="fn">ST_IsValid</span>(<span class="id">geom</span>) <span class="kw">AS</span> <span class="id">valid</span>
+<span class="line-nums">13</span><span class="kw">FROM</span> <span class="id">buildings</span>
+<span class="line-nums">14</span><span class="kw">WHERE NOT</span> <span class="fn">ST_IsValid</span>(<span class="id">geom</span>);</pre>
+</div>
+<table class="result-table"><tr><th>bang</th><th>count</th></tr><tr><td class="red">garbage</td><td class="red">11</td></tr><tr><td>buildings</td><td>174</td></tr><tr><td class="grn">roads</td><td class="grn">110</td></tr><tr><td>kcn_bounds</td><td>1</td></tr></table>`
+},
+
+// ── CHAPTER 4: SPATIAL QUERIES ─────────────────────
+{
+  chapter:"Spatial Query", icon:"🎯", title:"ST_Distance — Khoảng cách",
+  sub:"Tìm tòa nhà gần bãi rác nhất · KNN với toán tử <->",
+  badges:[["ST_Distance","r"],["geography","g"],["KNN","p"]],
+  notes:`ST_Distance tính khoảng cách giữa 2 geometry. Chú ý phải cast sang <strong>::geography</strong> để kết quả trả về đơn vị mét. Nếu dùng geometry thì kết quả trả về đơn vị độ. Toán tử <em>&lt;-&gt;</em> là KNN index — tìm gần nhất mà không cần scan toàn bảng.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — ST_Distance</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Mỗi bãi rác: tìm 3 tòa nhà gần nhất</span>
+<span class="line-nums">2</span><span class="kw">SELECT</span>
+<span class="line-nums">3</span>    g.id              <span class="kw">AS</span> <span class="id">garbage_id</span>,
+<span class="line-nums">4</span>    b.nature, b.company,
+<span class="line-nums">5</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Distance</span>(
+<span class="line-nums">6</span>        g.geom::<span class="kw2">geography</span>,  <span class="cm">-- ↑ cast để đơn vị = mét</span>
+<span class="line-nums">7</span>        b.geom::<span class="kw2">geography</span>
+<span class="line-nums">8</span>    )::<span class="tp">NUMERIC</span>, <span class="nm">2</span>)   <span class="kw">AS</span> <span class="id">khoang_cach_m</span>
+<span class="line-nums">9</span><span class="kw">FROM</span> <span class="id">garbage</span> g
+<span class="line-nums">10</span><span class="kw">CROSS JOIN LATERAL</span> (
+<span class="line-nums">11</span>    <span class="kw">SELECT</span> * <span class="kw">FROM</span> <span class="id">buildings</span> b2
+<span class="line-nums">12</span>    <span class="kw">ORDER BY</span> g.geom <span class="op">&lt;-&gt;</span> b2.geom  <span class="cm">-- KNN index</span>
+<span class="line-nums">13</span>    <span class="kw">LIMIT</span> <span class="nm">3</span>
+<span class="line-nums">14</span>) b
+<span class="line-nums">15</span><span class="kw">ORDER BY</span> g.id, khoang_cach_m;</pre>
+</div>
+<div class="explain"><strong>geometry vs geography:</strong> Cast <span class="kw">::geography</span> để tính khoảng cách trên mặt cầu → đơn vị mét chính xác. Không cast → đơn vị là độ (vô nghĩa).</div>`
+},
+
+{
+  chapter:"Spatial Query", icon:"☢️", title:"ST_Buffer — Vùng Đệm",
+  sub:"Tạo vùng nguy hiểm 50m/100m/200m quanh bãi rác",
+  badges:[["ST_Buffer","r"],["geography","g"],["50m · 100m · 200m","y"]],
+  notes:`ST_Buffer tạo vùng bao quanh một điểm theo bán kính cho trước. Ứng dụng thực tế: xác định vùng ô nhiễm, vùng cấm xây dựng, vùng nguy hiểm. Kết quả là một <strong>Polygon</strong> mới.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — ST_Buffer</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Vùng đệm 3 mức cho mỗi bãi rác</span>
+<span class="line-nums">2</span><span class="kw">SELECT</span>
+<span class="line-nums">3</span>    id, ten,
+<span class="line-nums">4</span>    <span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>, <span class="nm">50</span> )::<span class="kw2">geometry</span>  <span class="kw">AS</span> <span class="id">buf_50m</span>,
+<span class="line-nums">5</span>    <span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>, <span class="nm">100</span>)::<span class="kw2">geometry</span>  <span class="kw">AS</span> <span class="id">buf_100m</span>,
+<span class="line-nums">6</span>    <span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>, <span class="nm">200</span>)::<span class="kw2">geometry</span>  <span class="kw">AS</span> <span class="id">buf_200m</span>
+<span class="line-nums">7</span><span class="kw">FROM</span> <span class="id">garbage</span>;
+<span class="line-nums">8</span>
+<span class="line-nums">9</span><span class="cm">-- Diện tích vùng đệm 50m (lý thuyết)</span>
+<span class="line-nums">10</span><span class="cm">-- π × r² = 3.14 × 50² ≈ 7,854 m²</span>
+<span class="line-nums">11</span><span class="kw">SELECT</span> <span class="fn">ROUND</span>(
+<span class="line-nums">12</span>    <span class="fn">ST_Area</span>(<span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>,<span class="nm">50</span>))::<span class="tp">NUMERIC</span>, <span class="nm">2</span>
+<span class="line-nums">13</span>) <span class="kw">AS</span> <span class="id">dien_tich_m2</span>
+<span class="line-nums">14</span><span class="kw">FROM</span> <span class="id">garbage</span> <span class="kw">LIMIT</span> <span class="nm">3</span>;</pre>
+</div>`
+},
+
+{
+  chapter:"Spatial Query", icon:"⚡", title:"ST_Intersects — Tòa nhà trong vùng nguy hiểm",
+  sub:"JOIN buffer + buildings · Tìm đối tượng chồng lấn",
+  badges:[["ST_Intersects","r"],["Spatial JOIN","p"],["50m buffer","y"]],
+  notes:`ST_Intersects kiểm tra 2 geometry có chồng lấn nhau không. Kết hợp với ST_Buffer: tạo vùng đệm 50m quanh bãi rác, rồi tìm tất cả tòa nhà nằm trong đó. Đây là truy vấn quan trọng nhất — <strong>bao nhiêu người dân sống trong vùng ô nhiễm</strong>.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — ST_Intersects</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Tòa nhà nằm trong vùng đệm 50m bãi rác</span>
+<span class="line-nums">2</span><span class="kw">SELECT DISTINCT</span>
+<span class="line-nums">3</span>    b.id, b.nature, b.company,
+<span class="line-nums">4</span>    g.ten           <span class="kw">AS</span> <span class="id">bai_rac_lien_quan</span>,
+<span class="line-nums">5</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Distance</span>(
+<span class="line-nums">6</span>        b.geom::<span class="kw2">geography</span>, g.geom::<span class="kw2">geography</span>
+<span class="line-nums">7</span>    )::<span class="tp">NUMERIC</span>, <span class="nm">1</span>) <span class="kw">AS</span> <span class="id">khoang_cach_m</span>
+<span class="line-nums">8</span><span class="kw">FROM</span> <span class="id">buildings</span> b
+<span class="line-nums">9</span><span class="kw">JOIN</span> (
+<span class="line-nums">10</span>    <span class="kw">SELECT</span> id, ten,
+<span class="line-nums">11</span>           <span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>, <span class="nm">50</span>)::<span class="kw2">geometry</span> <span class="kw">AS</span> buf
+<span class="line-nums">12</span>    <span class="kw">FROM</span> <span class="id">garbage</span>
+<span class="line-nums">13</span>) g <span class="kw">ON</span> <span class="fn">ST_Intersects</span>(b.geom, g.buf)
+<span class="line-nums">14</span><span class="kw">ORDER BY</span> khoang_cach_m;</pre>
+</div>`
+},
+
+{
+  chapter:"Spatial Query", icon:"📍", title:"ST_Within & ST_DWithin",
+  sub:"Đối tượng bên trong · Tìm trong bán kính dùng index",
+  badges:[["ST_Within","b"],["ST_DWithin","g"],["GIST index","p"]],
+  notes:`ST_Within kiểm tra geometry A nằm HOÀN TOÀN bên trong B. ST_DWithin hiệu quả hơn ST_Distance+WHERE vì nó dùng GIST index trực tiếp — không scan toàn bảng. Luôn ưu tiên ST_DWithin khi chỉ cần lọc trong bán kính.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — ST_Within + ST_DWithin</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- ST_Within: đối tượng trong ranh giới KCN</span>
+<span class="line-nums">2</span><span class="kw">SELECT</span> b.id, b.nature, b.company
+<span class="line-nums">3</span><span class="kw">FROM</span> <span class="id">buildings</span> b, <span class="id">kcn_bounds</span> k
+<span class="line-nums">4</span><span class="kw">WHERE</span> <span class="fn">ST_Within</span>(b.geom, k.geom);
+<span class="line-nums">5</span>
+<span class="line-nums">6</span><span class="cm">-- ST_DWithin: đường trong 30m của bãi rác</span>
+<span class="line-nums">7</span><span class="cm">-- (dùng GIST index, không scan toàn bảng)</span>
+<span class="line-nums">8</span><span class="kw">SELECT</span>
+<span class="line-nums">9</span>    g.ten          <span class="kw">AS</span> <span class="id">bai_rac</span>,
+<span class="line-nums">10</span>    r.id           <span class="kw">AS</span> <span class="id">road_id</span>,
+<span class="line-nums">11</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Distance</span>(
+<span class="line-nums">12</span>        g.geom::<span class="kw2">geography</span>, r.geom::<span class="kw2">geography</span>
+<span class="line-nums">13</span>    )::<span class="tp">NUMERIC</span>,<span class="nm">1</span>) <span class="kw">AS</span> <span class="id">khoang_cach_m</span>
+<span class="line-nums">14</span><span class="kw">FROM</span> <span class="id">garbage</span> g
+<span class="line-nums">15</span><span class="kw">JOIN</span> <span class="id">roads</span> r
+<span class="line-nums">16</span>    <span class="kw">ON</span> <span class="fn">ST_DWithin</span>(g.geom::<span class="kw2">geography</span>, r.geom::<span class="kw2">geography</span>, <span class="nm">30</span>)
+<span class="line-nums">17</span><span class="kw">ORDER BY</span> g.id, khoang_cach_m;</pre>
+</div>`
+},
+
+{
+  chapter:"Spatial Query", icon:"🔷", title:"ST_ConvexHull & ST_Union",
+  sub:"Bao lồi toàn bộ bãi rác · Gộp vùng đệm chồng nhau",
+  badges:[["ST_ConvexHull","p"],["ST_Union","b"],["ST_Collect","g"]],
+  notes:`ST_ConvexHull vẽ hình đa giác lồi bao toàn bộ 11 điểm bãi rác — cho thấy phạm vi ô nhiễm tổng thể. ST_Union gộp tất cả vùng đệm chồng lấn thành 1 vùng duy nhất.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — ST_ConvexHull + ST_Union</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="cm">-- Bao lồi: hình đa giác bao toàn bộ bãi rác</span>
+<span class="line-nums">2</span><span class="kw">SELECT</span>
+<span class="line-nums">3</span>    <span class="fn">ST_ConvexHull</span>(<span class="fn">ST_Collect</span>(geom)) <span class="kw">AS</span> <span class="id">hull</span>,
+<span class="line-nums">4</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Area</span>(
+<span class="line-nums">5</span>        <span class="fn">ST_ConvexHull</span>(<span class="fn">ST_Collect</span>(geom))::<span class="kw2">geography</span>
+<span class="line-nums">6</span>    )::<span class="tp">NUMERIC</span>, <span class="nm">2</span>) <span class="kw">AS</span> <span class="id">dien_tich_hull_m2</span>
+<span class="line-nums">7</span><span class="kw">FROM</span> <span class="id">garbage</span>;
+<span class="line-nums">8</span>
+<span class="line-nums">9</span><span class="cm">-- Gộp tất cả vùng đệm 50m thành 1 polygon</span>
+<span class="line-nums">10</span><span class="kw">SELECT</span>
+<span class="line-nums">11</span>    <span class="fn">ST_Union</span>(buf)  <span class="kw">AS</span> <span class="id">vung_o_nhiem_tong</span>,
+<span class="line-nums">12</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Area</span>(<span class="fn">ST_Union</span>(buf)::<span class="kw2">geography</span>)::<span class="tp">NUMERIC</span>,<span class="nm">2</span>)
+<span class="line-nums">13</span>        <span class="kw">AS</span> <span class="id">tong_dien_tich_m2</span>
+<span class="line-nums">14</span><span class="kw">FROM</span> (
+<span class="line-nums">15</span>    <span class="kw">SELECT</span> <span class="fn">ST_Buffer</span>(geom::<span class="kw2">geography</span>,<span class="nm">50</span>)::<span class="kw2">geometry</span> buf
+<span class="line-nums">16</span>    <span class="kw">FROM</span> <span class="id">garbage</span>
+<span class="line-nums">17</span>) sub;</pre>
+</div>`
+},
+
+// ── CHAPTER 5: KẾT QUẢ ─────────────────────────────
+{
+  chapter:"Kết Quả", icon:"📊", title:"Báo Cáo Tổng Hợp — Spatial JOIN",
+  sub:"JOIN nhiều bảng · GROUP BY · Phân tích nguy cơ ô nhiễm",
+  badges:[["Spatial JOIN","p"],["GROUP BY","b"],["Phân tích","g"]],
+  notes:`Đây là truy vấn tổng hợp nhất — kết hợp nhiều hàm không gian trong 1 câu lệnh. Cho thấy mỗi bãi rác ảnh hưởng đến bao nhiêu tòa nhà và đường trong bán kính 50m và 30m tương ứng.`,
+  body:`
+<div class="code-wrap">
+  <div class="code-bar"><div class="code-bar-left"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-lang">SQL — Báo cáo tổng hợp nguy cơ ô nhiễm</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+  <pre><span class="line-nums">1</span><span class="kw">SELECT</span>
+<span class="line-nums">2</span>    g.id, g.ten, g.muc_doc_hai,
+<span class="line-nums">3</span>    <span class="fn">ROUND</span>(<span class="fn">ST_X</span>(g.geom)::<span class="tp">NUMERIC</span>,<span class="nm">5</span>) <span class="kw">AS</span> <span class="id">lon</span>,
+<span class="line-nums">4</span>    <span class="fn">ROUND</span>(<span class="fn">ST_Y</span>(g.geom)::<span class="tp">NUMERIC</span>,<span class="nm">5</span>) <span class="kw">AS</span> <span class="id">lat</span>,
+<span class="line-nums">5</span>    <span class="fn">COUNT</span>(<span class="kw">DISTINCT</span> b.id) <span class="kw">AS</span> <span class="id">toa_nha_50m</span>,
+<span class="line-nums">6</span>    <span class="fn">COUNT</span>(<span class="kw">DISTINCT CASE WHEN</span> b.nature=<span class="st">'Industrial'</span>
+<span class="line-nums">7</span>          <span class="kw">THEN</span> b.id <span class="kw">END</span>) <span class="kw">AS</span> <span class="id">cn_50m</span>,
+<span class="line-nums">8</span>    <span class="fn">COUNT</span>(<span class="kw">DISTINCT</span> r.id) <span class="kw">AS</span> <span class="id">duong_30m</span>,
+<span class="line-nums">9</span>    <span class="fn">MIN</span>(<span class="fn">ST_Distance</span>(g.geom::<span class="kw2">geography</span>,
+<span class="line-nums">10</span>        b.geom::<span class="kw2">geography</span>)) <span class="kw">AS</span> <span class="id">toa_nha_gan_nhat_m</span>
+<span class="line-nums">11</span><span class="kw">FROM</span> <span class="id">garbage</span> g
+<span class="line-nums">12</span><span class="kw">LEFT JOIN</span> <span class="id">buildings</span> b
+<span class="line-nums">13</span>    <span class="kw">ON</span> <span class="fn">ST_DWithin</span>(g.geom::<span class="kw2">geography</span>,b.geom::<span class="kw2">geography</span>,<span class="nm">50</span>)
+<span class="line-nums">14</span><span class="kw">LEFT JOIN</span> <span class="id">roads</span> r
+<span class="line-nums">15</span>    <span class="kw">ON</span> <span class="fn">ST_DWithin</span>(g.geom::<span class="kw2">geography</span>,r.geom::<span class="kw2">geography</span>,<span class="nm">30</span>)
+<span class="line-nums">16</span><span class="kw">GROUP BY</span> g.id, g.ten, g.muc_doc_hai, g.geom
+<span class="line-nums">17</span><span class="kw">ORDER BY</span> toa_nha_50m <span class="kw">DESC</span>;</pre>
+</div>`
+},
+
+{
+  chapter:"Kết Quả", icon:"🏁", title:"Tổng Kết & Kế Hoạch",
+  sub:"Buổi 1 hoàn thành · Buổi 2: demo + GitHub",
+  badges:[["✓ Done","g"],["Buổi 2","y"]],
+  notes:`Kết thúc phần trình bày. Tóm tắt: <strong>12 đầu việc buổi 1 hoàn thành</strong>. Buổi 2 sẽ demo live từng truy vấn trên database thật, chạy web app Leaflet và nộp GitHub.`,
+  body:`
+<div class="cards cards-2">
+  <div class="card card-g"><h4>✅ Buổi 1 — Đã hoàn thành</h4>
+    <p style="line-height:2;color:var(--txt);font-size:13px">
+    ✓ Cài PostgreSQL 15 + PostGIS 3.4<br>
+    ✓ Tạo database quangHungGIS (UTF-8)<br>
+    ✓ Tạo 4 bảng với GEOMETRY + GIST index<br>
+    ✓ Import 4 shapefile (11+174+110+1 dòng)<br>
+    ✓ Chuyển đổi VN-2000 → WGS84<br>
+    ✓ Viết báo cáo Word + file SQL đầy đủ
+    </p>
+  </div>
+  <div class="card card-y"><h4>→ Buổi 2 — Kế hoạch</h4>
+    <p style="line-height:2;color:var(--txt);font-size:13px">
+    ○ Demo 6 spatial queries live<br>
+    ○ ST_Buffer vùng đệm trực tiếp<br>
+    ○ ST_ConvexHull bao lồi bãi rác<br>
+    ○ Demo web app Leaflet tương tác<br>
+    ○ Giải thích code HTML + JS<br>
+    ○ Nộp link GitHub source code
+    </p>
+  </div>
+</div>
+<div class="explain" style="border-left-color:var(--g);margin-top:0">
+  <strong style="color:var(--g)">File SQL: quangHungGIS.sql</strong> — 909 dòng, 16 spatial queries, dữ liệu thực từ shapefile. Mở trực tiếp trong pgAdmin hoặc psql để demo.
+</div>`
+},
+
+]; // end SLIDES
+
+// ═══════════════════════════════════════════════════
+//  STATE & RENDER
+// ═══════════════════════════════════════════════════
+let current = 0;
+let notesOpen = false;
+let navVisible = true;
+
+function buildNav(){
+  const nav = document.getElementById('slide-nav');
+  const chapterTabs = document.getElementById('chapter-tabs');
+  const chapters = [...new Set(SLIDES.map(s=>s.chapter))];
+  nav.innerHTML='';
+  chapterTabs.innerHTML='';
+
+  chapters.forEach(ch=>{
+    const grp = document.createElement('div');
+    grp.className='sn-group';
+    const hdr = document.createElement('div');
+    hdr.className='sn-group-title';
+    hdr.textContent=ch;
+    hdr.onclick=()=>grp.classList.toggle('collapsed');
+    const slides = document.createElement('div');
+    slides.className='sn-slides';
+    SLIDES.forEach((s,i)=>{
+      if(s.chapter!==ch) return;
+      const d=document.createElement('div');
+      d.className='sn-slide'+(i===current?' on':'');
+      d.id='sn-'+i;
+      d.onclick=()=>go(i);
+      d.innerHTML=`<span class="sn-num">${String(i+1).padStart(2,'0')}</span><span class="sn-label">${s.icon} ${s.title}</span>`;
+      slides.appendChild(d);
+    });
+    grp.appendChild(hdr); grp.appendChild(slides);
+    nav.appendChild(grp);
+
+    const tab=document.createElement('div');
+    tab.className='tb-chapter'+(ch===SLIDES[current].chapter?' on':'');
+    tab.textContent=ch;
+    tab.onclick=()=>{
+      const idx=SLIDES.findIndex(s=>s.chapter===ch);
+      if(idx>=0) go(idx);
+    };
+    tab.id='tab-'+ch.replace(/\s/g,'_');
+    chapterTabs.appendChild(tab);
+  });
+}
+
+function renderSlide(idx){
+  const s = SLIDES[idx];
+  const content = document.getElementById('content');
+  const existing = content.querySelector('.slide.on');
+
+  const div = document.createElement('div');
+  div.className = 'slide';
+  div.id = 'slide-'+idx;
+
+  const badges = (s.badges||[]).map(([t,c])=>`<span class="s-badge bd-${c}">${t}</span>`).join('');
+  div.innerHTML = `<div class="s-wrap">
+    <div class="s-header">
+      <div class="s-icon">${s.icon}</div>
+      <div class="s-titles">
+        <h2>${s.title}</h2>
+        <p>${s.sub}</p>
+        <div style="margin-top:5px">${badges}</div>
+      </div>
+    </div>
+    ${s.body}
+  </div>`;
+  content.appendChild(div);
+
+  if(existing){ existing.classList.remove('on'); existing.classList.add('out'); setTimeout(()=>existing.remove(),400); }
+  requestAnimationFrame(()=>div.classList.add('on'));
+}
+
+function updateUI(){
+  const s = SLIDES[current];
+  // nav highlight
+  document.querySelectorAll('.sn-slide').forEach(d=>d.classList.remove('on'));
+  const sn=document.getElementById('sn-'+current);
+  if(sn){ sn.classList.add('on'); sn.scrollIntoView({block:'nearest'}); }
+  // chapter tabs
+  document.querySelectorAll('.tb-chapter').forEach(t=>{
+    t.classList.toggle('on', t.textContent===s.chapter);
+  });
+  // progress
+  const pct = ((current+1)/SLIDES.length*100).toFixed(1);
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('tb-progress-txt').textContent=`${current+1} / ${SLIDES.length}`;
+  document.getElementById('slide-indicator').textContent=`${String(current+1).padStart(2,'0')} / ${String(SLIDES.length).padStart(2,'0')}`;
+  document.getElementById('slide-title-bot').textContent=s.icon+' '+s.title;
+  // notes
+  document.getElementById('notes-body').innerHTML=s.notes||'';
+}
+
+function go(idx){
+  if(idx<0||idx>=SLIDES.length) return;
+  current=idx;
+  renderSlide(current);
+  updateUI();
+}
+function next(){ go(Math.min(current+1,SLIDES.length-1)); }
+function prev(){ go(Math.max(current-1,0)); }
+
+function toggleNotes(){
+  notesOpen=!notesOpen;
+  document.getElementById('notes-panel').classList.toggle('open',notesOpen);
+}
+function toggleNav(){
+  navVisible=!navVisible;
+  document.getElementById('slide-nav').style.display=navVisible?'':'none';
+}
+
+function copyCode(btn){
+  const pre=btn.closest('.code-wrap').querySelector('pre');
+  const text=pre.innerText.replace(/^\d+\s+/gm,'').trim();
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='copied!'; btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1500);
+  });
+}
+
+// keyboard
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' ') { e.preventDefault(); next(); }
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') { e.preventDefault(); prev(); }
+  if(e.key==='n'||e.key==='N') toggleNotes();
+  if(e.key==='Escape'&&notesOpen) toggleNotes();
+  // number keys
+  const n=parseInt(e.key);
+  if(!isNaN(n)&&n>=1&&n<=9) go(n-1);
+});
+
+// clock
+setInterval(()=>{ document.getElementById('tb-clock').textContent=new Date().toLocaleTimeString('vi-VN'); },1000);
+
+// init
+buildNav();
+go(0);
+</script>
+</body>
+</html>
