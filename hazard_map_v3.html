@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>HAZARD ZONE ☣ KCN Quang Hưng — Tactical GIS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;600;700&family=Exo+2:ital,wght@0,200;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ══════════════════════════════════════════════════
+   ROOT & RESET
+══════════════════════════════════════════════════ */
+:root {
+  --g: #39ff14; --g2: #1a8c09; --g3: rgba(57,255,20,.12);
+  --r: #ff2800; --r2: rgba(255,40,0,.2);
+  --b: #00d4ff; --b2: rgba(0,212,255,.15);
+  --y: #ffd200; --y2: rgba(255,210,0,.15);
+  --bg: #03050a; --bg2: #070d0a; --bg3: #0a1208;
+  --panel: rgba(4,8,6,.96);
+  --bdr: rgba(57,255,20,.18); --bdr2: rgba(57,255,20,.35);
+  --txt: #d4f5d4; --muted: #4a7050; --muted2: #2a4030;
+  --sw: 310px; /* sidebar width */
+  --hw: 360px; /* right panel width */
+  --th: 54px;  /* top hud height */
+  --bh: 28px;  /* bottom bar height */
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:'Rajdhani',sans-serif; color:var(--txt); }
+::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--bdr2); border-radius:2px; }
+
+/* ══════════════════════════════════════════════════
+   SCANLINES + VIGNETTE + GRAIN
+══════════════════════════════════════════════════ */
+#fx { position:fixed; inset:0; pointer-events:none; z-index:9900; }
+#fx::before {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);
+}
+#fx::after {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.6) 100%);
+}
+#grain {
+  position:fixed; inset:0; pointer-events:none; z-index:9899; opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grainShift 0.5s steps(1) infinite;
+}
+@keyframes grainShift { 0%{background-position:0 0} 25%{background-position:-50px 30px} 50%{background-position:20px -40px} 75%{background-position:-30px -20px} 100%{background-position:10px 50px} }
+
+/* ══════════════════════════════════════════════════
+   INTRO
+══════════════════════════════════════════════════ */
+#intro {
+  position:fixed; inset:0; z-index:10000; background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity 1.2s cubic-bezier(.4,0,.2,1);
+}
+#intro.fade-out { opacity:0; pointer-events:none; }
+
+.intro-stripe {
+  position:absolute; left:0; right:0; overflow:hidden; white-space:nowrap;
+  padding:10px 0; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+  background:repeating-linear-gradient(-60deg,#ffd200,#ffd200 15px,#1a1200 15px,#1a1200 30px);
+  color:#000; letter-spacing:4px;
+}
+.intro-stripe.top { top:0; }
+.intro-stripe.bottom { bottom:0; }
+.intro-stripe span { display:inline-block; animation:marquee 20s linear infinite; padding-right:60px; }
+@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+.intro-core { display:flex; flex-direction:column; align-items:center; gap:18px; z-index:1; padding:20px; }
+
+.bio-wrap {
+  width:100px; height:100px; position:relative; display:flex; align-items:center; justify-content:center;
+}
+.bio-ring {
+  position:absolute; width:100%; height:100%; border-radius:50%;
+  border:2px solid var(--g); animation:ringPulse 3s ease-in-out infinite;
+}
+.bio-ring:nth-child(2) { width:75%; height:75%; animation-delay:.8s; border-color:rgba(57,255,20,.5); }
+.bio-ring:nth-child(3) { width:50%; height:50%; animation-delay:1.6s; border-color:rgba(57,255,20,.3); }
+@keyframes ringPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:.6} }
+.bio-icon { font-size:46px; position:relative; z-index:1; filter:drop-shadow(0 0 20px var(--g)); animation:bioFloat 4s ease-in-out infinite; }
+@keyframes bioFloat { 0%,100%{transform:translateY(0) rotateY(0deg)} 25%{transform:translateY(-4px) rotateY(90deg)} 50%{transform:translateY(0) rotateY(180deg)} 75%{transform:translateY(-4px) rotateY(270deg)} }
+
+.intro-title {
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(22px,3.5vw,46px);
+  color:var(--g); letter-spacing:8px; text-align:center;
+  text-shadow:0 0 30px var(--g),0 0 80px rgba(57,255,20,.3);
+  animation:titleGlitch 5s ease-in-out infinite;
+}
+@keyframes titleGlitch {
+  0%,90%,100%{transform:none;clip-path:none}
+  92%{transform:translate(-2px,0) skewX(-1deg);clip-path:polygon(0 20%,100% 20%,100% 40%,0 40%)}
+  94%{transform:translate(2px,0) skewX(1deg);clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%)}
+  96%{transform:none;clip-path:none;color:var(--r)}
+  98%{color:var(--g)}
+}
+.intro-sub { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); letter-spacing:3px; text-align:center; }
+
+.boot-terminal {
+  width:min(460px,90vw); background:rgba(0,0,0,.8); border:1px solid var(--bdr);
+  border-radius:4px; padding:14px 16px; max-height:180px; overflow:hidden;
+  font-family:'JetBrains Mono',monospace; font-size:10.5px; line-height:1.85;
+  position:relative;
+}
+.boot-terminal::before { content:'TERMINAL — PostgreSQL 15 · PostGIS 3.4'; position:absolute; top:-1px; left:16px; font-size:9px; color:var(--g2); background:#000; padding:0 8px; }
+.boot-line { opacity:0; transform:translateX(-4px); transition:opacity .2s,transform .2s; }
+.boot-line.show { opacity:1; transform:none; }
+.boot-ok   { color:var(--g2); } .boot-warn { color:var(--y); } .boot-err { color:var(--r); }
+
+.enter-btn {
+  padding:13px 44px; background:transparent; border:2px solid var(--g);
+  color:var(--g); font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700;
+  letter-spacing:5px; cursor:pointer; transition:all .3s;
+  box-shadow:0 0 24px rgba(57,255,20,.25), inset 0 0 24px rgba(57,255,20,.04);
+  animation:btnPulse 2.5s ease-in-out infinite; text-transform:uppercase;
+  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
+}
+@keyframes btnPulse { 0%,100%{box-shadow:0 0 24px rgba(57,255,20,.25),inset 0 0 24px rgba(57,255,20,.04)} 50%{box-shadow:0 0 50px rgba(57,255,20,.5),inset 0 0 30px rgba(57,255,20,.08)} }
+.enter-btn:hover { background:var(--g); color:#000; box-shadow:0 0 80px rgba(57,255,20,.8),inset 0 0 0 rgba(57,255,20,0); transform:scale(1.03); }
+
+/* ══════════════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════════════ */
+#app { position:fixed; inset:0; opacity:0; transition:opacity 1.5s ease; pointer-events:none; }
+#app.on { opacity:1; pointer-events:all; }
+
+/* ══════════════════════════════════════════════════
+   TOP HUD
+══════════════════════════════════════════════════ */
+#hud {
+  position:fixed; top:0; left:0; right:0; height:var(--th); z-index:3000;
+  background:linear-gradient(180deg,rgba(0,0,0,.98) 0%,rgba(3,8,5,.95) 100%);
+  border-bottom:1px solid var(--bdr2);
+  box-shadow:0 1px 0 rgba(57,255,20,.08), 0 4px 30px rgba(0,0,0,.6);
+  display:flex; align-items:center; gap:0; padding:0;
+  overflow:hidden;
+}
+.hud-logo {
+  padding:0 18px; display:flex; align-items:center; gap:10px;
+  border-right:1px solid var(--bdr); height:100%; flex-shrink:0;
+}
+.hud-bio { font-size:20px; animation:bioPulse2 3s ease-in-out infinite; }
+@keyframes bioPulse2 { 0%,100%{filter:drop-shadow(0 0 5px var(--g))} 50%{filter:drop-shadow(0 0 18px var(--g)) drop-shadow(0 0 40px rgba(57,255,20,.5))} }
+.hud-text h1 { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; color:var(--g); letter-spacing:3px; text-shadow:0 0 10px var(--g); line-height:1; }
+.hud-text p  { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1.5px; margin-top:2px; }
+
+.hud-stats { display:flex; height:100%; }
+.hud-stat {
+  padding:0 18px; display:flex; flex-direction:column; justify-content:center; align-items:center;
+  border-right:1px solid var(--bdr); cursor:default; transition:background .2s; gap:1px;
+}
+.hud-stat:hover { background:rgba(57,255,20,.04); }
+.hud-stat .sv { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; line-height:1; }
+.hud-stat .sl { font-size:8px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+.hs-r .sv { color:var(--r); text-shadow:0 0 10px var(--r); }
+.hs-y .sv { color:var(--y); text-shadow:0 0 10px var(--y); }
+.hs-b .sv { color:var(--b); text-shadow:0 0 10px var(--b); }
+.hs-g .sv { color:var(--g); text-shadow:0 0 10px var(--g); }
+
+.hud-right { margin-left:auto; display:flex; align-items:center; gap:14px; padding:0 18px; }
+.live-dot-wrap { display:flex; align-items:center; gap:6px; }
+.live-dot { width:7px; height:7px; background:var(--r); border-radius:50%; animation:liveDot 1.2s ease-in-out infinite; box-shadow:0 0 8px var(--r); }
+@keyframes liveDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
+.live-txt { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--r); letter-spacing:2px; }
+#hud-clock { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--g); letter-spacing:2px; text-shadow:0 0 8px var(--g); }
+#hud-zoom { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--b); }
+.hud-btn {
+  padding:5px 12px; background:rgba(57,255,20,.06); border:1px solid var(--bdr);
+  color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:10px;
+  cursor:pointer; transition:all .2s; letter-spacing:1px; border-radius:2px;
+}
+.hud-btn:hover { background:rgba(57,255,20,.15); border-color:var(--g); color:var(--g); }
+
+/* ══════════════════════════════════════════════════
+   LEFT SIDEBAR
+══════════════════════════════════════════════════ */
+#sidebar {
+  position:fixed; top:var(--th); left:0; bottom:var(--bh); width:var(--sw); z-index:2000;
+  background:var(--panel); border-right:1px solid var(--bdr);
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:2px 0 30px rgba(0,0,0,.5), inset -1px 0 0 rgba(57,255,20,.06);
+  transition:transform .4s cubic-bezier(.4,0,.2,1);
+}
+#sidebar.collapsed { transform:translateX(calc(-1 * var(--sw))); }
+
+.sb-sec { border-bottom:1px solid var(--bdr); flex-shrink:0; }
+.sb-hdr {
+  padding:9px 14px; display:flex; align-items:center; gap:6px;
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:3px;
+  color:var(--g2); text-transform:uppercase; cursor:pointer;
+  transition:background .15s; user-select:none;
+}
+.sb-hdr::before { content:'▶'; font-size:7px; color:var(--g); transition:transform .2s; }
+.sb-hdr.open::before { transform:rotate(90deg); }
+.sb-hdr:hover { background:rgba(57,255,20,.04); }
+.sb-body { padding:10px 12px; display:none; }
+.sb-body.open { display:block; }
+
+/* Basemap pills */
+.bm-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.bm-pill {
+  padding:7px 6px; background:rgba(57,255,20,.04); border:1px solid var(--bdr);
+  border-radius:2px; font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:var(--muted); cursor:pointer; transition:all .2s; text-align:center; letter-spacing:1px;
+  clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);
+}
+.bm-pill:hover { border-color:var(--g); color:var(--g); background:rgba(57,255,20,.08); }
+.bm-pill.on { background:rgba(57,255,20,.14); border-color:var(--g); color:var(--g); box-shadow:0 0 10px rgba(57,255,20,.15); }
+
+/* Layer toggles */
+.lyr-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:2px; cursor:pointer; transition:background .15s; margin-bottom:1px; user-select:none; }
+.lyr-row:hover { background:rgba(57,255,20,.05); }
+.lyr-row input { display:none; }
+.lyr-cb {
+  width:16px; height:16px; border:1px solid var(--muted); border-radius:2px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  transition:all .2s; position:relative; overflow:hidden;
+}
+.lyr-row input:checked ~ .lyr-cb { border-color:var(--g); background:rgba(57,255,20,.15); box-shadow:0 0 6px rgba(57,255,20,.3); }
+.lyr-row input:checked ~ .lyr-cb::after { content:''; position:absolute; width:8px; height:5px; border-left:2px solid var(--g); border-bottom:2px solid var(--g); transform:rotate(-45deg) translate(0px,-1px); }
+.lyr-swatch { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+.lyr-name { font-size:12px; font-weight:500; flex:1; color:var(--txt); }
+.lyr-cnt { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); padding:1px 6px; border:1px solid var(--bdr); border-radius:8px; }
+
+/* Opacity slider */
+.op-row { display:flex; align-items:center; gap:8px; padding:2px 8px 6px 34px; }
+.op-row label { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted2); letter-spacing:1px; width:50px; }
+.op-row input[type=range] { flex:1; height:2px; accent-color:var(--g); cursor:pointer; }
+.op-row span { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); width:28px; text-align:right; }
+
+/* Query buttons */
+.qbtn {
+  display:flex; align-items:flex-start; gap:10px; width:100%;
+  padding:9px 10px 9px 12px; background:rgba(57,255,20,.03);
+  border:1px solid transparent; border-left:2px solid transparent;
+  color:var(--txt); font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:500;
+  cursor:pointer; transition:all .2s; text-align:left; margin-bottom:4px; border-radius:2px;
+  position:relative; overflow:hidden;
+}
+.qbtn::after { content:''; position:absolute; left:0; top:0; bottom:0; width:0; background:rgba(57,255,20,.06); transition:width .3s; }
+.qbtn:hover { border-color:var(--bdr); border-left-color:var(--g); color:var(--g); }
+.qbtn:hover::after { width:100%; }
+.qbtn.on { border-color:var(--bdr2); border-left-color:var(--g); color:var(--g); background:rgba(57,255,20,.08); }
+.qbtn.on::after { width:100%; }
+.qico { font-size:16px; flex-shrink:0; margin-top:1px; }
+.qtext { line-height:1.3; }
+.qtext .qsub { display:block; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; letter-spacing:.5px; }
+.qbtn.on .qsub { color:var(--g2); }
+
+/* Info scroll */
+.info-scroll { flex:1; overflow-y:auto; padding:12px 14px; }
+.isec-title { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--g2); letter-spacing:3px; margin-bottom:10px; }
+.info-empty {
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted2);
+  text-align:center; padding:20px 8px; line-height:2.2;
+}
+.icard { background:rgba(57,255,20,.04); border:1px solid var(--bdr); border-radius:2px; padding:11px 12px; margin-bottom:8px; animation:slideCard .25s ease; }
+@keyframes slideCard { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
+.itag { display:inline-flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; padding:3px 8px; margin-bottom:8px; border-radius:1px; }
+.t-r { background:rgba(255,40,0,.15); color:var(--r); border:1px solid rgba(255,40,0,.3); }
+.t-y { background:rgba(255,210,0,.12); color:var(--y); border:1px solid rgba(255,210,0,.25); }
+.t-b { background:rgba(0,212,255,.12); color:var(--b); border:1px solid rgba(0,212,255,.25); }
+.t-g { background:rgba(57,255,20,.12); color:var(--g); border:1px solid rgba(57,255,20,.25); }
+.irow { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(57,255,20,.07); }
+.irow:last-child { border:none; }
+.ik { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.iv { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--g); font-weight:600; }
+.iv.red { color:var(--r); } .iv.yel { color:var(--y); } .iv.blu { color:var(--b); }
+.sql { font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--muted); background:rgba(0,0,0,.5); border:1px solid var(--bdr); border-radius:2px; padding:8px 10px; margin:7px 0; line-height:1.75; white-space:pre; overflow-x:auto; }
+.kw{color:#ff6b6b} .fn{color:var(--b)} .st{color:var(--y)} .co{color:var(--g2)}
+
+/* ══════════════════════════════════════════════════
+   MAP
+══════════════════════════════════════════════════ */
+#map {
+  position:fixed; top:var(--th); left:var(--sw); right:0; bottom:var(--bh); z-index:100;
+  transition:left .4s cubic-bezier(.4,0,.2,1);
+}
+#map.expanded { left:0; }
+#canvas-over {
+  position:fixed; top:var(--th); left:var(--sw); right:0; bottom:var(--bh);
+  pointer-events:none; z-index:400;
+  transition:left .4s cubic-bezier(.4,0,.2,1);
+}
+#canvas-over.expanded { left:0; }
+
+.leaflet-container { background:#020806 !important; }
+.leaflet-tile-pane { filter:saturate(.45) brightness(.6) hue-rotate(110deg) contrast(1.1); }
+.leaflet-popup-content-wrapper {
+  background:rgba(3,6,4,.97) !important; color:var(--txt) !important;
+  border:1px solid var(--bdr2) !important; border-radius:3px !important;
+  box-shadow:0 0 40px rgba(57,255,20,.2), 0 8px 30px rgba(0,0,0,.7) !important;
+  backdrop-filter:blur(10px);
+}
+.leaflet-popup-tip-container { display:none; }
+.leaflet-popup-content { margin:12px 14px !important; font-size:12px !important; }
+.leaflet-control-zoom { border:1px solid var(--bdr2) !important; border-radius:3px !important; overflow:hidden; box-shadow:0 0 20px rgba(0,0,0,.5) !important; }
+.leaflet-control-zoom a { background:rgba(3,6,4,.97) !important; color:var(--g) !important; border-bottom:1px solid var(--bdr) !important; width:30px !important; height:30px !important; line-height:28px !important; font-size:18px !important; font-weight:300 !important; transition:all .2s !important; }
+.leaflet-control-zoom a:hover { background:rgba(57,255,20,.12) !important; }
+.leaflet-control-attribution { background:rgba(3,6,4,.7) !important; color:var(--muted2) !important; font-size:9px !important; border-top:1px solid var(--bdr) !important; }
+.leaflet-control-attribution a { color:var(--muted) !important; }
+.leaflet-control-scale-line { background:rgba(3,6,4,.8) !important; border-color:var(--bdr2) !important; color:var(--muted) !important; font-family:'JetBrains Mono',monospace !important; font-size:9px !important; }
+
+/* ══════════════════════════════════════════════════
+   SIDEBAR TOGGLE BTN
+══════════════════════════════════════════════════ */
+#sb-toggle {
+  position:fixed; top:calc(var(--th) + 10px); left:calc(var(--sw) + 10px); z-index:2500;
+  width:28px; height:28px; background:rgba(3,6,4,.95); border:1px solid var(--bdr2);
+  border-radius:3px; color:var(--g); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:12px; transition:all .4s cubic-bezier(.4,0,.2,1); box-shadow:0 0 12px rgba(0,0,0,.5);
+}
+#sb-toggle:hover { background:rgba(57,255,20,.12); box-shadow:0 0 12px rgba(57,255,20,.2); }
+#sb-toggle.collapsed { left:10px; }
+
+/* ══════════════════════════════════════════════════
+   BOTTOM STATUS BAR
+══════════════════════════════════════════════════ */
+#status-bar {
+  position:fixed; bottom:0; left:0; right:0; height:var(--bh); z-index:3000;
+  background:rgba(0,0,0,.95); border-top:1px solid var(--bdr);
+  display:flex; align-items:center; gap:0; padding:0 14px; overflow:hidden;
+}
+.sb-item {
+  display:flex; align-items:center; gap:6px; padding:0 12px;
+  border-right:1px solid var(--bdr); height:100%;
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);
+}
+.sb-item:last-child { border:none; }
+.sb-label { font-size:9px; letter-spacing:1px; opacity:.7; }
+.sb-val { color:var(--txt); }
+#sb-coords { color:var(--g); min-width:220px; }
+#sb-status { color:var(--g2); }
+.sb-sep { flex:1; }
+.sb-indicator { display:flex; align-items:center; gap:4px; }
+.si-dot { width:5px; height:5px; border-radius:50%; background:var(--g); box-shadow:0 0 5px var(--g); animation:liveDot 2s ease-in-out infinite; }
+.si-dot.y { background:var(--y); box-shadow:0 0 5px var(--y); }
+.si-dot.r { background:var(--r); box-shadow:0 0 5px var(--r); }
+
+/* ══════════════════════════════════════════════════
+   MINI SENSOR PANEL (top-right floating)
+══════════════════════════════════════════════════ */
+#sensor-panel {
+  position:fixed; top:calc(var(--th) + 12px); right:12px; z-index:2000; width:200px;
+  background:rgba(3,6,4,.94); border:1px solid var(--bdr);
+  border-radius:3px; padding:12px 14px;
+  box-shadow:0 0 30px rgba(0,0,0,.6), inset 0 0 30px rgba(57,255,20,.02);
+  backdrop-filter:blur(8px);
+}
+.sp-title { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--g2); letter-spacing:3px; margin-bottom:10px; }
+.sensor-row { margin-bottom:8px; }
+.sensor-row:last-child { margin:0; }
+.sensor-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+.sensor-name { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.sensor-val { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; }
+.sv-r{color:var(--r)} .sv-y{color:var(--y)} .sv-g{color:var(--g)} .sv-b{color:var(--b)}
+.sensor-bar { height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; }
+.sensor-fill { height:100%; border-radius:2px; transition:width 1.5s ease; }
+
+/* ══════════════════════════════════════════════════
+   POPUP STYLES
+══════════════════════════════════════════════════ */
+.ph { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; color:var(--g); margin-bottom:7px; letter-spacing:1px; text-shadow:0 0 8px var(--g); border-bottom:1px solid var(--bdr); padding-bottom:5px; }
+.pr { display:flex; gap:10px; padding:3px 0; }
+.pk { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); width:70px; flex-shrink:0; }
+.pv { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:var(--g); }
+.pv.red{color:var(--r)} .pv.yel{color:var(--y)} .pv.blu{color:var(--b)}
+
+/* ══════════════════════════════════════════════════
+   WIND ROSE (decorative corner)
+══════════════════════════════════════════════════ */
+#wind-rose {
+  position:fixed; bottom:calc(var(--bh) + 12px); right:12px; z-index:2000;
+  width:80px; height:80px; opacity:.7;
+}
+#wind-rose canvas { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div id="fx"></div>
+<div id="grain"></div>
+
+<!-- ══════════════════════════════════════════════
+     INTRO
+══════════════════════════════════════════════ -->
+<div id="intro">
+  <div class="intro-stripe top"><span>
+    ⚠ NGUY HIỂM ⚠ HAZARDOUS ZONE ⚠ KHU VỰC ĐỘC HẠI ⚠ CẢNH BÁO Ô NHIỄM ⚠ ENVIRONMENTAL HAZARD ⚠ DANGER ⚠ NGUY HIỂM ⚠ HAZARDOUS ZONE ⚠ KHU VỰC ĐỘC HẠI ⚠ CẢNH BÁO Ô NHIỄM ⚠ ENVIRONMENTAL HAZARD ⚠ DANGER &nbsp;
+    ⚠ NGUY HIỂM ⚠ HAZARDOUS ZONE ⚠ KHU VỰC ĐỘC HẠI ⚠ CẢNH BÁO Ô NHIỄM ⚠ ENVIRONMENTAL HAZARD ⚠ DANGER ⚠ NGUY HIỂM ⚠ HAZARDOUS ZONE ⚠ KHU VỰC ĐỘC HẠI ⚠ CẢNH BÁO Ô NHIỄM ⚠ ENVIRONMENTAL HAZARD ⚠ DANGER &nbsp;
+  </span></div>
+
+  <div class="intro-core">
+    <div class="bio-wrap">
+      <div class="bio-ring"></div>
+      <div class="bio-ring"></div>
+      <div class="bio-ring"></div>
+      <div class="bio-icon">☣️</div>
+    </div>
+    <div class="intro-title">HAZARD MAP SYSTEM</div>
+    <div class="intro-sub">KCN QUANG HƯNG &nbsp;·&nbsp; HẢI PHÒNG &nbsp;·&nbsp; VIỆT NAM</div>
+    <div class="boot-terminal"><div id="boot-log"></div></div>
+    <button class="enter-btn" id="enter-btn" style="display:none;opacity:0;transition:opacity .5s" onclick="launch()">
+      ▶ KHỞI ĐỘNG HỆ THỐNG
+    </button>
+  </div>
+
+  <div class="intro-stripe bottom"><span>
+    ☣ WASTE TRACKING ACTIVE ☣ BÃI RÁC CÔNG NGHIỆP ☣ QUANG HUNG INDUSTRIAL ZONE ☣ DỮ LIỆU KHÔNG GIAN GIS ☣ POSTGRESQL POSTGIS ☣ HẢI PHÒNG ☣ WASTE TRACKING ACTIVE ☣ BÃI RÁC CÔNG NGHIỆP ☣ QUANG HUNG INDUSTRIAL ZONE ☣ DỮ LIỆU KHÔNG GIAN GIS ☣ POSTGRESQL POSTGIS ☣ HẢI PHÒNG ☣ &nbsp;
+    ☣ WASTE TRACKING ACTIVE ☣ BÃI RÁC CÔNG NGHIỆP ☣ QUANG HUNG INDUSTRIAL ZONE ☣ DỮ LIỆU KHÔNG GIAN GIS ☣ POSTGRESQL POSTGIS ☣ HẢI PHÒNG ☣ WASTE TRACKING ACTIVE ☣ BÃI RÁC CÔNG NGHIỆP ☣ QUANG HUNG INDUSTRIAL ZONE ☣ DỮ LIỆU KHÔNG GIAN GIS ☣ POSTGRESQL POSTGIS ☣ HẢI PHÒNG ☣ &nbsp;
+  </span></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════ -->
+<div id="app">
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-logo">
+      <div class="hud-bio">☣️</div>
+      <div class="hud-text">
+        <h1>HAZARD MAP — KCN QUANG HƯNG</h1>
+        <p>PostgreSQL 15 · PostGIS 3.4 · EPSG:4326 · Hải Phòng 20°49'N 106°36'E</p>
+      </div>
+    </div>
+    <div class="hud-stats">
+      <div class="hud-stat hs-r"><span class="sv">11</span><span class="sl">Bãi Rác</span></div>
+      <div class="hud-stat hs-y"><span class="sv">174</span><span class="sl">Tòa Nhà</span></div>
+      <div class="hud-stat hs-b"><span class="sv">110</span><span class="sl">Đường</span></div>
+      <div class="hud-stat hs-g"><span class="sv" id="hud-zoom">16</span><span class="sl">Zoom</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="live-dot-wrap">
+        <div class="live-dot"></div>
+        <span class="live-txt">LIVE</span>
+      </div>
+      <div id="hud-clock">--:--:--</div>
+      <button class="hud-btn" onclick="toggleSidebar()">☰ PANEL</button>
+      <button class="hud-btn" onclick="map&&map.fitBounds(layers.bounds.getBounds(),{padding:[30,30]})">⊞ FIT</button>
+    </div>
+  </div>
+
+  <!-- SIDEBAR TOGGLE -->
+  <div id="sb-toggle" onclick="toggleSidebar()">◀</div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <!-- Basemap -->
+    <div class="sb-sec">
+      <div class="sb-hdr open" onclick="toggleSection(this)">NỀN BẢN ĐỒ</div>
+      <div class="sb-body open">
+        <div class="bm-grid">
+          <button class="bm-pill on" onclick="setBM('osm',this)">OSM</button>
+          <button class="bm-pill" onclick="setBM('satellite',this)">VỆ TINH</button>
+          <button class="bm-pill" onclick="setBM('dark',this)">TỐI</button>
+          <button class="bm-pill" onclick="setBM('topo',this)">ĐỊA HÌNH</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layers -->
+    <div class="sb-sec">
+      <div class="sb-hdr open" onclick="toggleSection(this)">LỚP DỮ LIỆU</div>
+      <div class="sb-body open">
+        <label class="lyr-row">
+          <input type="checkbox" id="l-bounds" checked onchange="toggleLyr('bounds',this)">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:rgba(255,210,0,.35);border:1px solid var(--y)"></div>
+          <span class="lyr-name">Ranh Giới KCN</span><span class="lyr-cnt">1</span>
+        </label>
+        <label class="lyr-row">
+          <input type="checkbox" id="l-building" checked onchange="toggleLyr('building',this)">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:rgba(0,212,255,.3);border:1px solid var(--b)"></div>
+          <span class="lyr-name">Tòa Nhà</span><span class="lyr-cnt">174</span>
+        </label>
+        <div class="op-row">
+          <label>ĐỘ MỜ</label>
+          <input type="range" min="10" max="100" value="60" oninput="setBuildingOpacity(+this.value);this.nextElementSibling.textContent=this.value+'%'">
+          <span>60%</span>
+        </div>
+        <label class="lyr-row">
+          <input type="checkbox" id="l-road" checked onchange="toggleLyr('road',this)">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:rgba(57,255,20,.3);border:1px solid var(--g);height:2px;margin-top:5px"></div>
+          <span class="lyr-name">Đường Giao Thông</span><span class="lyr-cnt">110</span>
+        </label>
+        <label class="lyr-row">
+          <input type="checkbox" id="l-garbage" checked onchange="toggleLyr('garbage',this)">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:var(--r);border-radius:50%;border:1px solid #ff6040"></div>
+          <span class="lyr-name">Bãi Rác ☣</span><span class="lyr-cnt">11</span>
+        </label>
+        <label class="lyr-row">
+          <input type="checkbox" id="l-traffic" checked onchange="showTraffic=this.checked">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:linear-gradient(90deg,var(--g),var(--b));border-radius:50%"></div>
+          <span class="lyr-name">Xe Lưu Thông</span><span class="lyr-cnt">∞</span>
+        </label>
+        <label class="lyr-row">
+          <input type="checkbox" id="l-particles" checked onchange="showParticles=this.checked">
+          <div class="lyr-cb"></div>
+          <div class="lyr-swatch" style="background:radial-gradient(var(--g),transparent);border:1px solid var(--g)"></div>
+          <span class="lyr-name">Khí Độc Hại</span><span class="lyr-cnt">∞</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Queries -->
+    <div class="sb-sec">
+      <div class="sb-hdr open" onclick="toggleSection(this)">TRUY VẤN POSTGIS</div>
+      <div class="sb-body open">
+        <button class="qbtn" id="q-buffer" onclick="runQ('buffer',this)">
+          <span class="qico">☢</span>
+          <span class="qtext">Vùng đệm 50m bãi rác<span class="qsub">ST_Buffer(geom::geography, 50)</span></span>
+        </button>
+        <button class="qbtn" id="q-nearest" onclick="runQ('nearest',this)">
+          <span class="qico">🎯</span>
+          <span class="qtext">Tòa nhà gần nhất<span class="qsub">ST_Distance ORDER BY ASC LIMIT 1</span></span>
+        </button>
+        <button class="qbtn" id="q-intersect" onclick="runQ('intersect',this)">
+          <span class="qico">⚡</span>
+          <span class="qtext">Giao vùng đệm + tòa nhà<span class="qsub">ST_Intersects(buffer, geom)</span></span>
+        </button>
+        <button class="qbtn" id="q-industrial" onclick="runQ('industrial',this)">
+          <span class="qico">🏭</span>
+          <span class="qtext">Tòa nhà công nghiệp<span class="qsub">WHERE nature = 'Industrial'</span></span>
+        </button>
+        <button class="qbtn" id="q-residential" onclick="runQ('residential',this)">
+          <span class="qico">🏠</span>
+          <span class="qtext">Tòa nhà dân cư<span class="qsub">WHERE nature = 'Residential'</span></span>
+        </button>
+        <button class="qbtn" id="q-convex" onclick="runQ('convex',this)">
+          <span class="qico">🔷</span>
+          <span class="qtext">Convex Hull bãi rác<span class="qsub">ST_ConvexHull(ST_Collect(geom))</span></span>
+        </button>
+        <button class="qbtn" id="q-reset" onclick="runQ('reset',this)">
+          <span class="qico">↺</span>
+          <span class="qtext">Reset tất cả<span class="qsub">CLEAR ALL QUERY LAYERS</span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="info-scroll">
+      <div class="isec-title">THÔNG TIN ĐỐI TƯỢNG</div>
+      <div id="info-box">
+        <div class="info-empty">
+          ━━━━━━━━━━━━━━━━━━━<br>
+          [ SYSTEM OPERATIONAL ]<br>
+          ━━━━━━━━━━━━━━━━━━━<br>
+          Hover / click vào<br>
+          đối tượng bản đồ<br>
+          để xem thông tin<br>
+          ━━━━━━━━━━━━━━━━━━━<br>
+          PostGIS ready ✓
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+  <canvas id="canvas-over"></canvas>
+
+  <!-- SENSOR PANEL -->
+  <div id="sensor-panel">
+    <div class="sp-title">CẢM BIẾN Ô NHIỄM</div>
+    <div class="sensor-row">
+      <div class="sensor-top">
+        <span class="sensor-name">KHÔNG KHÍ</span>
+        <span class="sensor-val sv-r" id="sv-air">78%</span>
+      </div>
+      <div class="sensor-bar"><div class="sensor-fill" id="sf-air" style="width:78%;background:linear-gradient(90deg,#ff6000,#ff2800)"></div></div>
+    </div>
+    <div class="sensor-row">
+      <div class="sensor-top">
+        <span class="sensor-name">NƯỚC ĐẤT</span>
+        <span class="sensor-val sv-y" id="sv-water">55%</span>
+      </div>
+      <div class="sensor-bar"><div class="sensor-fill" id="sf-water" style="width:55%;background:linear-gradient(90deg,#a06000,var(--y))"></div></div>
+    </div>
+    <div class="sensor-row">
+      <div class="sensor-top">
+        <span class="sensor-name">ĐẤT</span>
+        <span class="sensor-val sv-b" id="sv-soil">42%</span>
+      </div>
+      <div class="sensor-bar"><div class="sensor-fill" id="sf-soil" style="width:42%;background:linear-gradient(90deg,#005060,var(--b))"></div></div>
+    </div>
+    <div class="sensor-row">
+      <div class="sensor-top">
+        <span class="sensor-name">ÂM THANH</span>
+        <span class="sensor-val sv-g" id="sv-noise">31%</span>
+      </div>
+      <div class="sensor-bar"><div class="sensor-fill" id="sf-noise" style="width:31%;background:linear-gradient(90deg,var(--g2),var(--g))"></div></div>
+    </div>
+  </div>
+
+  <!-- WIND ROSE -->
+  <div id="wind-rose"><canvas id="wind-canvas" width="80" height="80"></canvas></div>
+
+  <!-- STATUS BAR -->
+  <div id="status-bar">
+    <div class="sb-item"><span class="sb-label">COORDS</span><span id="sb-coords" class="sb-val">106.61200°E  20.83200°N</span></div>
+    <div class="sb-item"><span class="sb-label">ZOOM</span><span id="sb-zoom-val" class="sb-val">16</span></div>
+    <div class="sb-item">
+      <div class="sb-indicator"><div class="si-dot"></div></div>
+      <span id="sb-status" class="sb-val">PostGIS Connected</span>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="sb-item">
+      <div class="sb-indicator"><div class="si-dot y"></div></div>
+      <span class="sb-val">11 bãi rác đang theo dõi</span>
+    </div>
+    <div class="sb-item">
+      <div class="sb-indicator"><div class="si-dot r"></div></div>
+      <span class="sb-val">Nguy cơ ô nhiễm: CAO</span>
+    </div>
+    <div class="sb-item"><span class="sb-val" id="sb-particles">Particles: 0</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════════════════════════════
+//  GEO DATA
+// ═══════════════════════════════════════════════════
+const GD = {"garbadge": {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61369265502955, 20.829640058892064]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.6118914658762, 20.830081733896776]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61227021732542, 20.830591029135363]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61141219693098, 20.832364381944224]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.60945676733336, 20.82910531061307]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61104624339706, 20.82868238471348]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61338800273194, 20.831832146103174]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61227075592805, 20.835023722906353]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.60944165698012, 20.83124189130417]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61112864062987, 20.831136872341748]}, "properties": {}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [106.61262369947953, 20.831950779170377]}, "properties": {}}]}, "road": {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60929053552225, 20.828253144089114], [106.60923190574817, 20.82838250089831]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60938184418681, 20.828275601868487], [106.60930783611133, 20.828258533956163], [106.60929053552225, 20.828253144089114]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60929053552225, 20.828253144089114], [106.60920979943991, 20.828227991376213], [106.60915885881653, 20.828206431908015]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60875133382945, 20.828229787998563], [106.60886763223378, 20.828218109953287]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60886763223378, 20.828218109953287], [106.60886955452146, 20.82816780452749], [106.60888493282286, 20.828095041322314], [106.6088964665489, 20.82807438016529]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61117726087515, 20.82792705713259], [106.61109844708048, 20.827993532159542], [106.61103885616255, 20.828051922385914], [106.61093697491579, 20.828128278835788], [106.61084854968274, 20.828176787639237], [106.61070341696329, 20.828240567732664], [106.61052752764104, 20.828309737693136], [106.61029589197622, 20.828390585698887], [106.610167098702, 20.828446280991734], [106.61009309062652, 20.82850287459576], [106.60987010525623, 20.82868972332016], [106.60972208910526, 20.828794825727634], [106.609581762105, 20.82889543657923], [106.60953370491313, 20.82894933524973], [106.60951928775556, 20.828995149119656], [106.60951640432405, 20.829050844412503]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60923190574817, 20.82838250089831], [106.60918769313164, 20.828478620194037], [106.60917327597409, 20.82852084081926], [106.60917231483025, 20.828567553000358]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6089579797545, 20.828421128278837], [106.60902045410393, 20.828434602946462], [106.60910022904244, 20.828462450592884]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60910022904244, 20.828462450592884], [106.60917423711793, 20.828419331656487], [106.60923190574817, 20.82838250089831]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60923190574817, 20.82838250089831], [106.60927707950853, 20.828353754940714], [106.60938184418681, 20.828275601868487]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6089579797545, 20.828421128278837], [106.60890992256263, 20.828354653251886], [106.60888301053518, 20.828276500179662], [106.60886763223378, 20.828218109953287]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60833131397249, 20.829034674811354], [106.60832266367795, 20.829036471433707], [106.60817272523931, 20.829093963348903], [106.60814581321186, 20.829108336327707]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60991624016043, 20.829992274523896], [106.60992489045496, 20.82991771469637], [106.6099335407495, 20.829810815666548], [106.60994026875636, 20.829651814588576], [106.60994219104404, 20.829460474308302], [106.60993450189333, 20.82927991376213], [106.60994026875636, 20.82914696370823], [106.6099537247701, 20.82905713259073], [106.6099873648044, 20.82896909809558], [106.61006521745523, 20.828851419331656], [106.61017863242805, 20.82873823212361], [106.61025840736656, 20.82866097736256], [106.6103958509353, 20.828563061444484], [106.6105650122507, 20.82848311174991], [106.61091486860752, 20.82834028027309], [106.6111503488477, 20.828251347466765], [106.61120897862178, 20.82824146604384], [106.61125895810133, 20.828240567732664], [106.61133584960832, 20.828262127200862]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60951640432405, 20.829050844412503], [106.60942990137868, 20.829009522098456], [106.60938280533065, 20.82897089471793], [106.60932994241959, 20.82890980955803], [106.60930110810446, 20.828852317642834], [106.60927804065237, 20.828766079770034], [106.60925881777563, 20.828703197987785], [106.60924343947421, 20.82868074020841], [106.60919442113851, 20.828643909450232]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60909830675476, 20.82893675889328], [106.60906178328895, 20.82895742005031], [106.60900795923405, 20.82897808120733], [106.60895990204217, 20.828984369385555], [106.60889550540507, 20.828982572763206], [106.60880227445284, 20.828978979518507], [106.60868982062385, 20.82897089471793], [106.60861485140454, 20.82897089471793], [106.6084956695687, 20.828988860941433], [106.60833131397249, 20.829034674811354]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60910022904244, 20.828462450592884], [106.6091377136521, 20.828491196550484], [106.60915693652885, 20.82852802730866], [106.60917231483025, 20.828567553000358]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60917231483025, 20.828567553000358], [106.60918480970014, 20.828598993891482], [106.60919442113851, 20.828643909450232]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60919442113851, 20.828643909450232], [106.60920114914538, 20.828672655407836], [106.6091992268577, 20.828749910168884], [106.60919826571386, 20.828756198347108]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60919826571386, 20.828756198347108], [106.609191537707, 20.828806503772906], [106.60917423711793, 20.82886938555516], [106.60914155822745, 20.828904419690982], [106.60909830675476, 20.82893675889328]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61196443767801, 20.828301652892563], [106.61194521480127, 20.828404958677687], [106.61189331303405, 20.82861785842616], [106.61186159528741, 20.828812791951133], [106.61183756669146, 20.82894035213798], [106.61182603296542, 20.829054437657206]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61182603296542, 20.829054437657206], [106.61213744356876, 20.829083183614806], [106.61318412920772, 20.829192777578154], [106.61394343283929, 20.829270930650377], [106.61407030382584, 20.829280812073304]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61206728006862, 20.828315127560188], [106.61196443767801, 20.828301652892563]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61224989739773, 20.828318720804887], [106.61224701396621, 20.828347466762487], [106.61223548024017, 20.828375314408913], [106.6122181796511, 20.828397772188286], [106.61218838419214, 20.828410348544736], [106.61216531674003, 20.828410348544736], [106.61214801615095, 20.82840945023356], [106.61212783213037, 20.828404060366513], [106.61211245382897, 20.82839687387711], [106.61209995895909, 20.82838699245419], [106.61208938637688, 20.828375314408913], [106.61207689150699, 20.828357348185413], [106.61207112464396, 20.82833938196191], [106.61206728006862, 20.828315127560188]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61213167670573, 20.82823427955444], [106.61216627788387, 20.828227991376213], [106.61219703448667, 20.82823427955444], [106.61222586880179, 20.82825224577794], [106.61224701396621, 20.82828278835789], [106.61224989739773, 20.828318720804887]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61206728006862, 20.828315127560188], [106.6120692023563, 20.828286381602588], [106.61207881379467, 20.828263923823215], [106.61209707552757, 20.828246855910887], [106.61213167670573, 20.82823427955444]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60919826571386, 20.828756198347108], [106.6091992268577, 20.828786740927058], [106.60919249885083, 20.82886579231046], [106.60918480970014, 20.82890980955803], [106.6091713536864, 20.828946640316207], [106.60913386907676, 20.82905533596838], [106.60910022904244, 20.82914876033058], [106.60908773417255, 20.829215235357527], [106.60908965646023, 20.829288896873877], [106.60910407361779, 20.829399389148403], [106.60915501424118, 20.829581746316926], [106.60922806117281, 20.829789256198346], [106.60929053552225, 20.829916816385197], [106.60936838817308, 20.82999137621272], [106.60940587278274, 20.830024613726195], [106.60940010591972, 20.830055156306145], [106.60938472761832, 20.830104563420768]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61196443767801, 20.828301652892563], [106.61183660554764, 20.82827739849084], [106.61161842589654, 20.828231584620912], [106.61153480638268, 20.828221703197986], [106.61146464288254, 20.828218109953287], [106.61139736281392, 20.828228889687388], [106.61133584960832, 20.828262127200862]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60951640432405, 20.829050844412503], [106.60951448203637, 20.829084980237155], [106.60954523863917, 20.82920445562343], [106.60961251870779, 20.829418253683077], [106.6096922936463, 20.829667984189722], [106.6097566902834, 20.829788357887175], [106.60982012577668, 20.829871900826447], [106.60988163898227, 20.82995364714337], [106.60991624016043, 20.829992274523896]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60917327597409, 20.830001257635647], [106.60921556630294, 20.83001652892562], [106.60938472761832, 20.830104563420768]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60888301053518, 20.829916816385197], [106.60894164030927, 20.829929392741647], [106.60907139472732, 20.82996442687747], [106.60917327597409, 20.830001257635647]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61108787449827, 20.83035878548329], [106.6109504309295, 20.8297335609055], [106.61091486860752, 20.82948023715415], [106.6109091017445, 20.829377829680205], [106.61092640233358, 20.829307761408554], [106.61095331436103, 20.829192777578154], [106.61101482756662, 20.828991555874957], [106.6110782630599, 20.828794825727634], [106.61113593169014, 20.828584620912686], [106.61121090090946, 20.82837890765361], [106.61123300721772, 20.82832321236076], [106.61127241411505, 20.828289076536112], [106.61128875356029, 20.82827919511319], [106.61133584960832, 20.828262127200862]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61133584960832, 20.828262127200862], [106.6113147044439, 20.828349263384837], [106.61128202555342, 20.828461552281713], [106.61118014430666, 20.828775062881782], [106.61112920368328, 20.828946640316207], [106.61101578871046, 20.829394897592525], [106.6110090607036, 20.829459575997127], [106.6110167498543, 20.829532339202302], [106.61105711789547, 20.829750628817823], [106.61118014430666, 20.830333632770394]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60888301053518, 20.829916816385197], [106.60888012710367, 20.829877290693496], [106.60887051566529, 20.829849443047074], [106.60884360363785, 20.829809917355373], [106.60877728471306, 20.829745238950775], [106.60865137487036, 20.829606899029827], [106.60856198849348, 20.82950179662235], [106.60851681473312, 20.829446999640677], [106.60845530152751, 20.8293490837226], [106.60841205005484, 20.82926554078333], [106.60839378832192, 20.829213438735177], [106.60837360430133, 20.829169421487602], [106.60835149799307, 20.829093963348903], [106.60833131397249, 20.829034674811354]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61182603296542, 20.829054437657206], [106.61182411067774, 20.82913438735178], [106.61183083868461, 20.829284405318003], [106.61188754617102, 20.82972906934962], [106.61192887535603, 20.830033596837946], [106.61195482623964, 20.830106360043118]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61407030382584, 20.829280812073304], [106.61388095848986, 20.829535932447], [106.6136944965854, 20.8297910528207], [106.61363875024283, 20.829846748113546], [106.61359838220166, 20.829871900826447], [106.61352725755769, 20.82991052820697], [106.61344748261918, 20.829926697808123], [106.61334175679706, 20.82993747754222], [106.61318412920772, 20.829923104563424], [106.61297171641965, 20.829914121451672], [106.6128419620016, 20.82991052820697], [106.61269971271365, 20.829914121451672], [106.61257668630246, 20.829930291052822], [106.6124392427337, 20.82996442687747], [106.61195482623964, 20.830106360043118]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61118014430666, 20.830333632770394], [106.61108787449827, 20.83035878548329]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61195482623964, 20.830106360043118], [106.61134353875903, 20.830295005389868], [106.61118014430666, 20.830333632770394]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60938472761832, 20.830104563420768], [106.60950006487882, 20.830173733381244], [106.6095740729543, 20.83020517427237], [106.60962405243384, 20.830218648939994], [106.60968172106409, 20.830225835429392], [106.60969806050933, 20.830224038807042], [106.60972208910526, 20.830222242184693], [106.60975957371492, 20.830206072583543], [106.60980378633144, 20.830173733381244], [106.60985472695484, 20.830118936399572], [106.60989413385217, 20.830064139417896], [106.60991624016043, 20.829992274523896]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60917327597409, 20.830001257635647], [106.60919634342619, 20.830055156306145], [106.60921364401526, 20.83009378368667], [106.60924920633724, 20.83012612288897], [106.60933955385796, 20.830206970894718], [106.60946738598834, 20.830327344592167], [106.60966538161885, 20.830507006827165], [106.6098797166946, 20.830694753862737], [106.60996910307149, 20.83075943226734], [106.61012576951698, 20.83086004311894], [106.61024110677748, 20.830946280991736], [106.61034587145576, 20.83104060366511], [106.61041026809286, 20.831107977003235], [106.61044006355183, 20.83114121451671], [106.61047562587382, 20.83120858785483]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60991624016043, 20.829992274523896], [106.60999889853045, 20.83010097017607], [106.61001908255103, 20.830130614444844], [106.61007771232512, 20.83022853036292], [106.61012769180466, 20.83031386992454], [106.61015268154443, 20.830351598993893], [106.61021419475003, 20.83040909090909], [106.61028531939401, 20.830463887890765], [106.61031511485297, 20.83049532878189], [106.61036701662019, 20.83059414301114], [106.61043621897649, 20.830704635285663], [106.61047466472998, 20.83081692418254], [106.61049196531906, 20.83099389148401], [106.61049100417522, 20.83111965504851], [106.61047562587382, 20.83120858785483]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61260359832991, 20.831416097736255], [106.61253247368593, 20.83125080848006], [106.61236331237055, 20.830849263384838], [106.61230660488414, 20.83071631333094], [106.61225566426076, 20.830633668702838]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61120321175876, 20.831054078332734], [106.61122051234783, 20.83104240028746], [106.61123396836156, 20.831034315486885], [106.61125511352598, 20.83102443406396], [106.61128202555342, 20.83101904419691], [106.6113070152932, 20.831019942508085], [106.61132719931379, 20.831023535752784]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61132719931379, 20.831023535752784], [106.61135218905356, 20.83103701042041], [106.61136756735496, 20.83105856988861], [106.61138294565636, 20.83108551922386]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61195482623964, 20.830106360043118], [106.61203171774663, 20.830251886453468], [106.61214417157561, 20.83043604024434], [106.61225566426076, 20.830633668702838]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61118014430666, 20.830333632770394], [106.6112378129369, 20.83066421128279], [106.61130220957402, 20.83094897592526], [106.61131951016309, 20.83099748472871], [106.61132719931379, 20.831023535752784]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61120321175876, 20.831054078332734], [106.61120897862178, 20.831016349263386], [106.61119456146422, 20.830885195831836], [106.61112151453257, 20.83051329500539], [106.61108787449827, 20.83035878548329]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61138294565636, 20.83108551922386], [106.61159439730059, 20.83097233201581], [106.61186543986275, 20.830836687028388], [106.61205766863024, 20.830723499820337], [106.61216627788387, 20.83066600790514], [106.61225566426076, 20.830633668702838]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61097734295696, 20.827964786201942], [106.61102347786115, 20.827950413223142], [106.61114746541618, 20.82792885375494], [106.61117726087515, 20.82792705713259]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61117726087515, 20.82792705713259], [106.6112656861082, 20.827921667265542], [106.61134353875903, 20.827918074020843], [106.61142331369753, 20.827919870643193], [106.61153384523884, 20.827936938555517], [106.61166167736921, 20.82797736255839], [106.61187216786962, 20.82805821056414], [106.61198846627394, 20.82811031261229], [106.61206055206175, 20.828157923104566], [106.61208938637688, 20.828186669062163], [106.61213167670573, 20.82823427955444]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60915885881653, 20.828206431908015], [106.60924632290573, 20.82799712540424], [106.60927323493318, 20.82792885375494], [106.60928572980306, 20.827892022996767], [106.60929822467295, 20.82786956521739], [106.60931264183051, 20.827861480416818], [106.6093405150018, 20.827874955084443], [106.60936646588542, 20.82793154868847], [106.60939337791287, 20.828008803449514], [106.60939818363205, 20.828032159540065], [106.60938761104984, 20.828059108875316], [106.60932321441273, 20.82818217750629], [106.60929053552225, 20.828253144089114]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60938184418681, 20.828275601868487], [106.6094712305637, 20.82828099173554], [106.60957887867349, 20.828263923823215], [106.60975765142724, 20.82822529644269], [106.60996045277695, 20.828179482572764], [106.61016902098967, 20.828136363636364], [106.61035163831879, 20.828109414301114], [106.61054675051778, 20.82808695652174], [106.61065247633991, 20.828066295364717], [106.61074570729214, 20.82804563420769], [106.6108754617102, 20.827995328781892], [106.61097734295696, 20.827964786201942]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60915885881653, 20.828206431908015], [106.609037754693, 20.828154329859863], [106.6088964665489, 20.82807438016529]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61199615542465, 20.835225835429394], [106.61197404911638, 20.835254581386994], [106.61192118620532, 20.83536776859504], [106.6118664010066, 20.835582464965864], [106.61180873237635, 20.835869924541864], [106.61177989806122, 20.835960653970535]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61355224729746, 20.836039705353937], [106.61343594889313, 20.83609450233561], [106.61327736015996, 20.83612324829321], [106.61308417024863, 20.836106180380884], [106.61287656317974, 20.83606036651096], [106.61254496855582, 20.83593999281351], [106.61233736148694, 20.835836687028387]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6104544807094, 20.831275062881783], [106.61042949096962, 20.83125350341358], [106.61022572847608, 20.831101688825008], [106.61019785530479, 20.83108372260151]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61047562587382, 20.83120858785483], [106.6104544807094, 20.831275062881783]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61059384656582, 20.831396334890407], [106.6104544807094, 20.831275062881783]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61019785530479, 20.83108372260151], [106.61006810088674, 20.83120050305426], [106.60998255908521, 20.83125260510241], [106.60993834646868, 20.831281351060007], [106.6098845224138, 20.83129841897233], [106.60980666976296, 20.831302012217034], [106.60959810155023, 20.831285842615884], [106.60948564772126, 20.831289435860583], [106.60940010591972, 20.831284944304706], [106.60932321441273, 20.831279554437657], [106.60928765209074, 20.83129662234998], [106.60925208976876, 20.831328961552284], [106.60924151718655, 20.83135770750988], [106.60924151718655, 20.831374775422205], [106.60925689548795, 20.83141519942508], [106.60929726352911, 20.83145472511678], [106.60937319389227, 20.831502335609056], [106.60966345933119, 20.83165954006468], [106.60978648574238, 20.831733201581027], [106.60981243662599, 20.831758354293928], [106.60983165950273, 20.831788896873878], [106.60984511551645, 20.83184099892203], [106.60989221156449, 20.831957779374775], [106.6099181624481, 20.832008983111752], [106.60995468591392, 20.832061983471075], [106.61000658768114, 20.8321149838304], [106.61007963461279, 20.832193136902625], [106.61021996161305, 20.832356629536473], [106.61035067717495, 20.83249496945742], [106.6105111881958, 20.832653970535393], [106.61058711855895, 20.832715954006467], [106.6106447871892, 20.832759971254045]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.60991143444124, 20.833759791591806], [106.61009597405803, 20.833889148401006], [106.61034202688042, 20.834045454545453], [106.61048331502451, 20.834138878907655], [106.61051983849033, 20.834151455264106], [106.61056308996302, 20.83415415019763], [106.61061210829874, 20.83413618397413], [106.61062748660014, 20.83411103126123], [106.61063998147002, 20.83406970894718], [106.61063229231932, 20.833961013295006], [106.61058135169594, 20.83379213079411], [106.61056981796989, 20.83373463887891], [106.61057654597674, 20.83367535034136]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61177989806122, 20.835960653970535], [106.61170685112958, 20.836095400646784], [106.61164328406021, 20.836195842208767]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61306494737188, 20.835729787998563], [106.61315337260493, 20.835842975206614], [106.61323218639959, 20.83590945023356], [106.61334367908474, 20.83596514552641], [106.61347439464663, 20.83601545095221], [106.61355224729746, 20.836039705353937]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61306494737188, 20.835729787998563], [106.61313126629666, 20.835652533237514], [106.61318701263923, 20.835522278117143], [106.61320431322831, 20.83547017606899], [106.6132350698311, 20.835364175350342], [106.61325237042018, 20.83524290334172], [106.61325621499553, 20.83519619116062]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61308417024863, 20.832826446280993], [106.61331003905042, 20.832263205174275]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61331003905042, 20.832263205174275], [106.61348785066035, 20.831818541142653]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61260359832991, 20.831416097736255], [106.61274969219319, 20.831363097376933], [106.61284676772078, 20.831346927775783], [106.61292654265928, 20.831347826086958], [106.61298036671418, 20.831366690621632], [106.61303899648827, 20.831409809558032], [106.61316202289946, 20.831532878189005], [106.61327639901612, 20.831655048508804], [106.61333791222171, 20.831731404958678], [106.61338308598206, 20.831763744160977], [106.61348785066035, 20.831818541142653]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61348785066035, 20.831818541142653], [106.61355705301665, 20.831645167085878], [106.61367431256481, 20.831381961911607], [106.61380310583903, 20.83115199425081], [106.61393766597627, 20.830922924901188], [106.61405877009979, 20.830750449155587]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61225566426076, 20.830633668702838], [106.6123671569459, 20.83059054976644], [106.61250171708313, 20.83056899029824], [106.61266415039167, 20.830566295364715], [106.61294576553604, 20.83058515989939], [106.61366470112644, 20.830684872439814], [106.61405877009979, 20.830750449155587]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61405877009979, 20.830750449155587], [106.61413758389446, 20.830647143370463], [106.61434519096335, 20.830384836507367], [106.61462872839539, 20.83003988501617], [106.61504682596468, 20.829569169960475]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61407030382584, 20.829280812073304], [106.61411739987388, 20.829284405318003], [106.61424234857274, 20.829295185052104], [106.61440382073744, 20.829325727632053], [106.61464602898447, 20.829401185770752], [106.61494782814943, 20.829517067912327], [106.61504682596468, 20.829569169960475]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61504682596468, 20.829569169960475], [106.61517081351971, 20.829429033417178], [106.61545146752024, 20.829074200503054], [106.61555911563003, 20.828926877470355], [106.61563600713703, 20.828798418972333], [106.61565619115761, 20.828727452389508]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61400686833257, 20.828636722960834], [106.6140001403257, 20.828673553719007], [106.6139847620243, 20.82869331656486], [106.61396169457221, 20.828702299676607], [106.61393286025708, 20.828703197987785], [106.61390018136662, 20.828698706431908], [106.61386942476382, 20.828682536830758], [106.61385789103777, 20.82866636722961], [106.6138482795994, 20.828652892561983], [106.61385212417474, 20.82861785842616]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61565619115761, 20.828727452389508], [106.61562158997947, 20.828727452389508], [106.61556488249306, 20.828720265900106], [106.61551874758887, 20.828706791232484], [106.61546011781478, 20.828681638519583], [106.6154245554928, 20.828656485806686], [106.61540437147221, 20.828624146604383], [106.61538707088313, 20.828568451311536]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61391748195568, 20.828559468199785], [106.61393670483244, 20.82856036651096], [106.6139665002914, 20.828563061444484], [106.61398091744896, 20.828573841178585], [106.61399437346267, 20.82859270571326], [106.61400590718873, 20.82861785842616], [106.61400686833257, 20.828636722960834]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61400686833257, 20.828636722960834], [106.6141000992848, 20.82864480776141], [106.6141846799425, 20.828653790873158], [106.61435191897021, 20.828661875673735], [106.61449320711431, 20.828663672296084], [106.6147392599367, 20.828652892561983], [106.61494975043709, 20.82863402802731], [106.61515831864982, 20.82860887531441], [106.61538707088313, 20.828568451311536]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61586764280185, 20.828431908012938], [106.61587533195255, 20.828469637082286], [106.6158791765279, 20.828508264462812], [106.61587725424022, 20.82856575637801], [106.61587052623337, 20.828600790513836], [106.6158455364936, 20.828673553719007], [106.61578786786335, 20.82870589292131], [106.61575038325368, 20.828719367588935], [106.61569463691112, 20.828728350700683], [106.61565619115761, 20.828727452389508]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61385212417474, 20.82861785842616], [106.61385500760625, 20.82859629895796], [106.61386942476382, 20.82857653611211], [106.61389153107207, 20.828566654689187], [106.61391748195568, 20.828559468199785]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61538707088313, 20.828568451311536], [106.61538707088313, 20.82852802730866], [106.61538899317081, 20.82849568810636], [106.61539091545848, 20.82845616241466], [106.61540725490372, 20.828401365432985], [106.61543224464349, 20.828371721164213], [106.61546300124628, 20.82834297520661]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61224989739773, 20.828318720804887], [106.61241905871312, 20.828378009342437], [106.61263627722037, 20.82843280632411], [106.61284676772078, 20.82848670499461], [106.61313511087201, 20.828541501976286], [106.61344940490686, 20.82858551922386], [106.613679118284, 20.828602587136185], [106.61385212417474, 20.82861785842616]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61546300124628, 20.82834297520661], [106.615512019582, 20.828314229249013], [106.61556296020538, 20.828301652892563], [106.615630240274, 20.828290873158462], [106.61568214204122, 20.828289076536112], [106.61574653867834, 20.82829446640316], [106.61576287812358, 20.828301652892563]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61576287812358, 20.828301652892563], [106.61580036273322, 20.828318720804887], [106.61582150789765, 20.82833758533956], [106.61584649763742, 20.828375314408913], [106.61586764280185, 20.828431908012938]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6121028423906, 20.835144089112468], [106.6120153783014, 20.83520158102767], [106.61199615542465, 20.835225835429394]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61325621499553, 20.83519619116062], [106.61326102071472, 20.835091088753146], [106.61325621499553, 20.834936579231044], [106.61324179783797, 20.834807222421848], [106.61322545839273, 20.834712001437296], [106.61314952802957, 20.83459162773985], [106.61306686965955, 20.8344784405318], [106.61282273912484, 20.834212540424005], [106.61265261666561, 20.834070607258354], [106.61258437545315, 20.834032878189007]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6121028423906, 20.835144089112468], [106.6121028423906, 20.83520158102767], [106.61217108360306, 20.835259971254043], [106.61238637982264, 20.835465684513117], [106.6125468908435, 20.83561749910169], [106.6126958681383, 20.83570373697449], [106.6128265837002, 20.835753144089114], [106.61290924207022, 20.83576751706791], [106.61297748328268, 20.835763025512037], [106.61306494737188, 20.835729787998563]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61258437545315, 20.834032878189007], [106.61241809756928, 20.83397089471793], [106.61236139008287, 20.83395113187208], [106.6123364003431, 20.83393316564858]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61263051035735, 20.83392597915918], [106.61258437545315, 20.834032878189007]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61258437545315, 20.834032878189007], [106.61251036737768, 20.834187387711104], [106.6123027603088, 20.8346868487244], [106.61215762758934, 20.83498778296802], [106.61210957039746, 20.835098275242544], [106.6121028423906, 20.835144089112468]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6123364003431, 20.83393316564858], [106.61210380353444, 20.833916097736257], [106.61201922287674, 20.833919690980956], [106.61193752565056, 20.833934063959756], [106.6118923518902, 20.83397089471793], [106.61181738267088, 20.834072403880704], [106.61176163632831, 20.83410923463888], [106.61148578804696, 20.834235896514553], [106.61142235255369, 20.834261049227454], [106.61137045078647, 20.834250269493353], [106.61136180049193, 20.834221523535753], [106.61132527702611, 20.83409665828243], [106.61129836499866, 20.833957420050304]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61057654597674, 20.83367535034136], [106.61060153571653, 20.83364480776141], [106.61065824320293, 20.833629536471435], [106.61071975640853, 20.83362863816026], [106.61081490964843, 20.833643909450235], [106.61089276229927, 20.833663672296083], [106.61099944926522, 20.833714876033056], [106.61108691335443, 20.83377326625943], [106.61117437744363, 20.833838842975208], [106.61123877408075, 20.833892741645705], [106.61129836499866, 20.833957420050304]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61192983649985, 20.833312432626663], [106.61194713708893, 20.833385195831838], [106.61199231084929, 20.833776859504134], [106.61201249486989, 20.833805605461734], [106.61208650294536, 20.833810995328783], [106.61219126762364, 20.83380650377291], [106.61228449857587, 20.833819978440534], [106.61232775004856, 20.833828961552282]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6123364003431, 20.83393316564858], [106.61232198318554, 20.833901724757457], [106.61232294432938, 20.83387387711103], [106.61232775004856, 20.833828961552282]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61232775004856, 20.833828961552282], [106.61238830211032, 20.833841537908732], [106.61255746342572, 20.833895436579233], [106.61263051035735, 20.83392597915918]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61174433573923, 20.832911785842615], [106.61189811875323, 20.833206431908014], [106.61191253591079, 20.833238771110313], [106.61192983649985, 20.833312432626663]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61248633878174, 20.83267822493712], [106.61228161514437, 20.83327470355731], [106.61192983649985, 20.833312432626663]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61263051035735, 20.83392597915918], [106.61277852650832, 20.833590010779734], [106.61308417024863, 20.832826446280993]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61129836499866, 20.833957420050304], [106.61128298669726, 20.83381818181818], [106.6112656861082, 20.83367175709666], [106.61125126895062, 20.833547790154512], [106.61123685179307, 20.833396873877113], [106.61120609519027, 20.833325008983113], [106.61112824253944, 20.833213618397416], [106.61096100351172, 20.833047430830042], [106.61066401006596, 20.83278242903342], [106.6106447871892, 20.832759971254045]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.6106447871892, 20.832759971254045], [106.61064670947688, 20.832715055695296], [106.6106832329427, 20.83268361480417], [106.61072360098387, 20.832670140136546], [106.61078415304563, 20.83265307222422], [106.61082548223064, 20.83262073302192], [106.61089276229927, 20.832553359683796], [106.61097638181312, 20.83245185052102], [106.61106192361466, 20.832316205533598], [106.6111272813956, 20.8322659001078], [106.61119263917655, 20.832231764283147]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61140120738926, 20.832431189363998], [106.61150308863604, 20.83255605461732], [106.61162803733491, 20.832744699964067], [106.61174433573923, 20.832911785842615]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61248633878174, 20.83267822493712], [106.61259494803537, 20.832686309737692], [106.61271028529586, 20.832700682716492], [106.61285541801531, 20.832738411785844], [106.61295826040592, 20.832775242544017], [106.61308417024863, 20.832826446280993]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61174433573923, 20.832911785842615], [106.61191253591079, 20.832831836148042], [106.61209707552757, 20.832755479698168], [106.61224605282239, 20.83270337765002], [106.61235658436368, 20.83268541142652], [106.61248633878174, 20.83267822493712]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61266126696016, 20.832200323392023], [106.61284965115229, 20.832214696370823], [106.61309185939932, 20.832234459216675], [106.61331003905042, 20.832263205174275]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61140120738926, 20.832431189363998], [106.61152231151279, 20.832362917714697], [106.61164726021165, 20.832299137621273], [106.61178374263658, 20.83225062881782], [106.61195002052045, 20.832202120014372], [106.61206535778093, 20.832188645346747], [106.6122441305347, 20.832180560546174], [106.61243539815835, 20.832186848724398], [106.61266126696016, 20.832200323392023]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61119263917655, 20.832231764283147], [106.61126760839586, 20.832305425799497], [106.61138582908787, 20.832411426518146], [106.61140120738926, 20.832431189363998]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61248633878174, 20.83267822493712], [106.61266126696016, 20.832200323392023]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61118591116968, 20.83116097736256], [106.61099079897069, 20.83125080848006], [106.61084662739506, 20.83130111390586], [106.61059384656582, 20.831396334890407]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61132719931379, 20.831222062522457], [106.6113685284988, 20.83131458857348], [106.61141370225916, 20.831401724757455], [106.61144061428661, 20.831438555515632], [106.61154153438953, 20.831507725476104], [106.61167993910213, 20.831558030901906], [106.61186159528741, 20.83159486166008], [106.61195482623964, 20.831596658282432], [106.61207881379467, 20.83158228530363], [106.61222202422644, 20.831554437657203], [106.61233543919926, 20.83152299676608], [106.61260359832991, 20.831416097736255]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61266126696016, 20.832200323392023], [106.61268721784377, 20.8321185770751], [106.61270547957668, 20.832036830758177], [106.61271989673423, 20.831950592885377], [106.61272278016575, 20.831866151634927], [106.61271220758354, 20.83176733740568], [106.61268721784377, 20.831651455264105], [106.61260359832991, 20.831416097736255]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61059384656582, 20.831396334890407], [106.61073801814143, 20.83155713259073], [106.61080337592239, 20.83165415019763], [106.61087930628554, 20.831753862738054], [106.61095908122405, 20.831908372260152], [106.61102636129267, 20.83203772906935], [106.61109748593664, 20.8321185770751], [106.61119263917655, 20.832231764283147]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61118591116968, 20.83116097736256], [106.61117437744363, 20.831118756737332], [106.61117918316282, 20.83109270571326], [106.61118879460119, 20.831068451311534], [106.61120321175876, 20.831054078332734]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61132719931379, 20.831222062522457], [106.61135122790972, 20.83120768954366], [106.6113839068002, 20.831185231764284], [106.61139447938241, 20.83116636722961], [106.6114021685331, 20.831146604383758], [106.61140024624544, 20.831122349982035], [106.61138294565636, 20.83108551922386]]}, "properties": {"nbLanes": "2"}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[106.61118591116968, 20.83116097736256], [106.6112147454848, 20.831202299676608], [106.61124069636841, 20.831222062522457], [106.6112685695397, 20.83122385914481], [106.61130317071785, 20.831222960833635], [106.61132719931379, 20.831222062522457]]}, "properties": {"nbLanes": "2"}}]}, "bounds": {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60788972855835, 20.82758652468655], [106.60788972855835, 20.83642643360976], [106.61611510450527, 20.83642643360976], [106.61611510450527, 20.82758652468655], [106.60788972855835, 20.82758652468655]]]}, "properties": {}}]}, "building": {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61392324881871, 20.82888286022278], [106.61408568212724, 20.82890801293568], [106.61410490500398, 20.828819080129357], [106.61394535512697, 20.828793029105285], [106.61392324881871, 20.82888286022278]]]}, "properties": {"NATURE": "Residential", "COMPANY": "A"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6120182617329, 20.834432626661876], [106.61176451975982, 20.834480237154153], [106.61179431521879, 20.834612288896874], [106.61182411067774, 20.834679662235], [106.6120538240549, 20.834628458498024], [106.61204709604803, 20.834570966582824], [106.6120182617329, 20.834432626661876]]]}, "properties": {"NATURE": "Residential", "COMPANY": "B"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6140924101341, 20.829491915199426], [106.61425964916181, 20.82951257635645], [106.61427887203857, 20.829384117858428], [106.61411836101772, 20.829360761767877], [106.6140924101341, 20.829491915199426]]]}, "properties": {"NATURE": "Residential", "COMPANY": "C"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60979321374923, 20.82882626661876], [106.6098874058453, 20.828903521379807], [106.60993834646868, 20.82886309737693], [106.60996525849613, 20.82887747035573], [106.61006425631139, 20.82878314768236], [106.61004311114696, 20.828767876392384], [106.6101286529485, 20.828683435141933], [106.6101622929828, 20.82870948616601], [106.61025071821585, 20.82861785842616], [106.61011904151013, 20.828506467840462], [106.60979321374923, 20.82882626661876]]]}, "properties": {"NATURE": "Residential", "COMPANY": "D"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61367623485249, 20.82998239310097], [106.61371371946215, 20.83007222421847], [106.61384635731171, 20.83002551203737], [106.61381175613357, 20.829931189363997], [106.61367623485249, 20.82998239310097]]]}, "properties": {"NATURE": "Residential", "COMPANY": "E"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61268914013144, 20.828765181458856], [106.61289194148114, 20.828808300395256], [106.61292365922777, 20.82868613007546], [106.61272278016575, 20.828645706072585], [106.61268914013144, 20.828765181458856]]]}, "properties": {"NATURE": "Residential", "COMPANY": "F"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61041795724357, 20.832129356809197], [106.61036605547635, 20.8320682716493], [106.61004983915383, 20.831894897592527], [106.60999120937974, 20.831954186130076], [106.6100873237635, 20.832058390226376], [106.6101776712842, 20.8321185770751], [106.61028243596249, 20.83222457779375], [106.61041795724357, 20.832129356809197]]]}, "properties": {"NATURE": "Residential", "COMPANY": "G"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61254977427501, 20.829350880344954], [106.61253727940512, 20.829228710025152], [106.61230372145262, 20.829245777937476], [106.61231621632251, 20.8293670499461], [106.61254977427501, 20.829350880344954]]]}, "properties": {"NATURE": "Residential", "COMPANY": "H"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61205190176722, 20.8319928135106], [106.61209995895909, 20.832115882141572], [106.61223163566481, 20.8320754581387], [106.61218934533596, 20.831946999640678], [106.61205190176722, 20.8319928135106]]]}, "properties": {"NATURE": "Residential", "COMPANY": "I"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61257188058327, 20.833227991376212], [106.61233928377462, 20.833351958318364], [106.61242482557614, 20.833486704994613], [106.61265069437795, 20.83336094143011], [106.61257188058327, 20.833227991376212]]]}, "properties": {"NATURE": "Residential", "COMPANY": "J"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61199615542465, 20.82997340998922], [106.61213648242492, 20.829961731943946], [106.6121259098427, 20.82982968020122], [106.61197981597941, 20.82984405318002], [106.61199615542465, 20.82997340998922]]]}, "properties": {"NATURE": "Residential", "COMPANY": "K"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61246615476115, 20.831311893639956], [106.61233159462391, 20.83135411426518], [106.61236235122671, 20.83143226733741], [106.6125007559393, 20.83138286022278], [106.61246615476115, 20.831311893639956]]]}, "properties": {"NATURE": "Residential", "COMPANY": "L"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61338693055743, 20.82936615163493], [106.61316971205015, 20.829332914121455], [106.6131552948926, 20.82945418613008], [106.61337155225603, 20.8294784405318], [106.61338693055743, 20.82936615163493]]]}, "properties": {"NATURE": "Residential", "COMPANY": "M"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61285637915915, 20.831244520301833], [106.6128294671317, 20.831142112827884], [106.61261897663131, 20.831196011498385], [106.61265165552177, 20.831287639238234], [106.61285637915915, 20.831244520301833]]]}, "properties": {"NATURE": "Residential", "COMPANY": "N"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60974900113271, 20.828116600790516], [106.60987394983158, 20.828038447718292], [106.60982685378355, 20.827974667624865], [106.60978360231086, 20.827945023356094], [106.60967979877641, 20.828015989938915], [106.60970190508468, 20.828062702120015], [106.60974900113271, 20.828116600790516]]]}, "properties": {"NATURE": "Residential", "COMPANY": "O"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61158863043757, 20.828744520301836], [106.61158094128687, 20.82888465684513], [106.6117539471776, 20.82888465684513], [106.6117664420475, 20.828745418613007], [106.61158863043757, 20.828744520301836]]]}, "properties": {"NATURE": "Residential", "COMPANY": "P"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61431155092903, 20.82965630614445], [106.61433942410032, 20.829788357887175], [106.61467966901877, 20.8297299676608], [106.61465660156668, 20.8295934243622], [106.61431155092903, 20.82965630614445]]]}, "properties": {"NATURE": "Residential", "COMPANY": "Q"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61096965380627, 20.83250934243622], [106.61091294631986, 20.83259917355372], [106.61103308929953, 20.83266025871362], [106.61108595221059, 20.83255605461732], [106.61096965380627, 20.83250934243622]]]}, "properties": {"NATURE": "Residential", "COMPANY": "R"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6146777467311, 20.829357168523178], [106.6147959674231, 20.829325727632053], [106.61480077314229, 20.829338303988504], [106.61489304295068, 20.829329320876752], [106.61499588534129, 20.829331117499102], [106.61500838021118, 20.829271828961552], [106.61496897331385, 20.82926554078333], [106.6149728178892, 20.829214337046352], [106.61488247036847, 20.82917570966583], [106.61481903487521, 20.829201760689905], [106.61469600846401, 20.82920625224578], [106.61462296153236, 20.829244879626305], [106.6146777467311, 20.829357168523178]]]}, "properties": {"NATURE": "Residential", "COMPANY": "S"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60973458397515, 20.82870409629896], [106.60968844907096, 20.828639417894358], [106.60962405243384, 20.82867714696371], [106.60966345933119, 20.828740927057133], [106.60973458397515, 20.82870409629896]]]}, "properties": {"NATURE": "Residential", "COMPANY": "T"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6138357847295, 20.829871900826447], [106.61399533460651, 20.829850341358245], [106.6139665002914, 20.82973535752785], [106.61381560070892, 20.829761408551924], [106.6138357847295, 20.829871900826447]]]}, "properties": {"NATURE": "Residential", "COMPANY": "U"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61229411001425, 20.8319496945742], [106.61231525517867, 20.83210959396335], [106.61242482557614, 20.83209881422925], [106.61241905871312, 20.83201257635645], [106.61238830211032, 20.832011678045276], [106.61238157410345, 20.83194071146245], [106.61229411001425, 20.8319496945742]]]}, "properties": {"NATURE": "Residential", "COMPANY": "V"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61127433640273, 20.831719726913406], [106.6109811875323, 20.83172421846928], [106.61098503210766, 20.831775422206253], [106.6110167498543, 20.831833812432627], [106.61102828358034, 20.831835609054977], [106.61103116701186, 20.8318598634567], [106.61109556364896, 20.831862558390227], [106.6110936413613, 20.831888609414303], [106.61113593169014, 20.831890406036653], [106.61113112597096, 20.83185716852318], [106.61127721983424, 20.8318598634567], [106.61127433640273, 20.831719726913406]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61312357714596, 20.83426913402803], [106.61309570397468, 20.83413798059648], [106.61295249354289, 20.83415954006468], [106.61297652213884, 20.83428979518505], [106.61312357714596, 20.83426913402803]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61386750247614, 20.829436219906576], [106.61389153107207, 20.82931943945383], [106.61372525318819, 20.829293388429754], [106.61369545772924, 20.82941106719368], [106.61386750247614, 20.829436219906576]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61031511485297, 20.829351778656125], [106.61057846826442, 20.829300574919152], [106.61056116767534, 20.829215235357527], [106.61054386708628, 20.829217031979876], [106.61053906136709, 20.829194574200503], [106.61040450122985, 20.829219726913404], [106.6104083458052, 20.82923320158103], [106.61037951149007, 20.82923499820338], [106.61037086119553, 20.829245777937476], [106.61034779374344, 20.829225116780453], [106.61030165883923, 20.829254761049228], [106.61031703714063, 20.82927991376213], [106.61030358112691, 20.829287100251527], [106.61031511485297, 20.829351778656125]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6131783623447, 20.82879572403881], [106.61319950750912, 20.82870768954366], [106.61303899648827, 20.828679841897234], [106.61301112331698, 20.828771469637083], [106.6131783623447, 20.82879572403881]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61042756868194, 20.82860707869206], [106.61039008407228, 20.828647502694935], [106.61036124975716, 20.828726554078333], [106.61041987953125, 20.828746316924185], [106.61043333554497, 20.828714876033057], [106.61046985901079, 20.82873463887891], [106.61049773218208, 20.828748113546535], [106.6105083047643, 20.82878314768236], [106.61048331502451, 20.828788537549407], [106.61051214933964, 20.828901724757458], [106.61040354008601, 20.829002335609058], [106.61027859138714, 20.829120912684154], [106.61036124975716, 20.829197269134028], [106.61047370358614, 20.82910564139418], [106.61049196531906, 20.829119116061804], [106.61053041107255, 20.829086776859505], [106.6105083047643, 20.82906431908013], [106.61059000199047, 20.828996945742006], [106.61062075859327, 20.82906072583543], [106.61067073807281, 20.829194574200503], [106.6105880797028, 20.829167624865253], [106.61057654597674, 20.82920625224578], [106.61081587079227, 20.829261947538626], [106.610829326806, 20.829212540424002], [106.61084278281972, 20.829198167445206], [106.61086585027182, 20.829120912684154], [106.61084854968274, 20.82908587854833], [106.61088795658007, 20.82907330219188], [106.61094850864184, 20.828830758174632], [106.61091582975136, 20.828808300395256], [106.61068515523037, 20.828872080488683], [106.61066208777828, 20.828802910528207], [106.61073417356609, 20.828721164211284], [106.6109014125938, 20.82867714696371], [106.61099752697754, 20.828683435141933], [106.61103885616255, 20.828550485088034], [106.61106000132698, 20.828543298598635], [106.61110036936815, 20.828422924901187], [106.61104654531326, 20.828403162055338], [106.61100233269673, 20.828363636363637], [106.61087161713485, 20.82840765361121], [106.6106986112441, 20.82845975565936], [106.61070053353178, 20.828489399928134], [106.61059288542198, 20.82851904419691], [106.61059769114117, 20.828537908731587], [106.610480431593, 20.828567553000358], [106.61042756868194, 20.82860707869206]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "Y"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61174998972852, 20.83167424764549], [106.61175767887923, 20.831790129787066], [106.61189608359182, 20.831782943297664], [106.61188743329728, 20.831667959467264], [106.61174998972852, 20.83167424764549]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61141177997148, 20.8295], [106.61173280201318, 20.829515271289974], [106.61174433573923, 20.829375134746677], [106.61142331369753, 20.829356270212003], [106.61141177997148, 20.8295]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61196627179342, 20.829637753125116], [106.61202682385519, 20.829645837925693], [106.61214216111567, 20.82963505819159], [106.61215177255406, 20.829538040584694], [106.61198261123866, 20.829519176050017], [106.61196627179342, 20.829637753125116]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61150116634836, 20.82907150556953], [106.61148867147848, 20.829207150556954], [106.6117126179926, 20.82922242184693], [106.61171550142411, 20.829081386992456], [106.61150116634836, 20.82907150556953]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60974419541353, 20.828394178943586], [106.60990374529054, 20.828333093783687], [106.60985857153018, 20.828244160977363], [106.60970190508468, 20.828302551203738], [106.60974419541353, 20.828394178943586]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60998448137289, 20.82838699245419], [106.6099104732974, 20.828451670858787], [106.60999409281126, 20.828527128997486], [106.61005368372918, 20.828492094861662], [106.61002004369487, 20.828462450592884], [106.61004983915383, 20.828431908012938], [106.60998448137289, 20.82838699245419]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61016421527049, 20.828993352497307], [106.61006137287988, 20.829029284944305], [106.61009501291419, 20.829101149838305], [106.61019593301712, 20.829065217391307], [106.61016421527049, 20.828993352497307]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61177055645645, 20.832020890264175], [106.61178881818935, 20.832171806541574], [106.61188589371694, 20.832164620052172], [106.61187339884705, 20.8320128054636], [106.61177055645645, 20.832020890264175]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61276603163843, 20.834237693136902], [106.61261705434363, 20.834256557671576], [106.61264396637108, 20.83434998203378], [106.6127881379467, 20.834330219187926], [106.61276603163843, 20.834237693136902]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61112055338874, 20.830893280632413], [106.6110811464914, 20.830694753862737], [106.61106480704616, 20.83064265181459], [106.61051503277115, 20.83075583902264], [106.61051983849033, 20.830801652892564], [106.61056597339454, 20.83098850161696], [106.61112055338874, 20.830893280632413]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61395592770918, 20.829544017247578], [106.61393766597627, 20.82966708587855], [106.61408856555875, 20.82968864534675], [106.61411163301085, 20.829561983471077], [106.61395592770918, 20.829544017247578]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61253439597361, 20.832414121451674], [106.61254208512432, 20.832279374775425], [106.61242194214464, 20.832278476464246], [106.61242194214464, 20.832413223140495], [106.61253439597361, 20.832414121451674]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60947315285136, 20.83066421128279], [106.60949141458428, 20.830778296802013], [106.60957022837894, 20.83077111031261], [106.6095586946529, 20.830739669421487], [106.60961636328315, 20.83072799137621], [106.60960386841326, 20.830641753503414], [106.60947315285136, 20.83066421128279]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61212014297968, 20.830829500538986], [106.61216339445235, 20.830931908012936], [106.61224701396621, 20.83090226374416], [106.61224124710319, 20.83088968738771], [106.61229603230193, 20.830869026230687], [106.61225374197308, 20.830774703557314], [106.61212014297968, 20.830829500538986]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61380310583903, 20.829038268056056], [106.61367719599633, 20.829023895077256], [106.61367623485249, 20.829137082285303], [106.613797338976, 20.829142472152352], [106.61380310583903, 20.829038268056056]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61310531541305, 20.83125979159181], [106.61310531541305, 20.83113582464966], [106.61293615409767, 20.83113582464966], [106.61293903752917, 20.831260689902983], [106.61310531541305, 20.83125979159181]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6108168319361, 20.83144214876033], [106.61082644337448, 20.83157869205893], [106.61120225061492, 20.83157509881423], [106.61119071688887, 20.83144035213798], [106.61118879460119, 20.831416097736255], [106.61077934732644, 20.831424182536832], [106.61077934732644, 20.83145831836148], [106.6108168319361, 20.83144214876033]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61294192096068, 20.833985267696733], [106.61277179850146, 20.833971793029107], [106.61276891506995, 20.83407509881423], [106.61282370026868, 20.83408587854833], [106.61283042827554, 20.834137082285302], [106.61289770834416, 20.83414696370823], [106.6129063586387, 20.83409306503773], [106.61293230952231, 20.83409486166008], [106.61294192096068, 20.833985267696733]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60944143510473, 20.831177146963707], [106.60969902165317, 20.83120589292131], [106.60969133250246, 20.83124541861301], [106.609853765811, 20.83126607977003], [106.60987010525623, 20.831102587136186], [106.60987394983158, 20.831077434423285], [106.60974035083818, 20.831063061444485], [106.60973938969434, 20.83104958677686], [106.60945969683765, 20.831016349263386], [106.60945489111846, 20.831057671577437], [106.60944143510473, 20.831177146963707]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61291308664556, 20.831828422565575], [106.61292077579627, 20.83188771110313], [106.61289674720032, 20.831892202659002], [106.61290059177567, 20.83197664390945], [106.61305725822118, 20.831968559108876], [106.61307167537873, 20.832084441250448], [106.61320623551597, 20.832079949694574], [106.61323122525576, 20.8320646784046], [106.61320046865296, 20.831813151275604], [106.61291308664556, 20.831828422565575]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61217012245922, 20.83229554437657], [106.6120153783014, 20.832306324110675], [106.61202018402058, 20.83242310456342], [106.61217973389759, 20.832417714696373], [106.61217012245922, 20.83229554437657]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6145902826419, 20.82905174272368], [106.61442784933337, 20.829032878189004], [106.61441343217581, 20.82914157384118], [106.61457971005969, 20.829152353575278], [106.6145902826419, 20.82905174272368]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61490265438906, 20.82900323392023], [106.61528038391718, 20.828937657204456], [106.61525731646508, 20.828827164929933], [106.6148805480808, 20.828892741645706], [106.61490265438906, 20.82900323392023]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60908869531639, 20.83014588573482], [106.6090963844671, 20.830047969816746], [106.6089349123024, 20.830033596837946], [106.60892145628868, 20.830134207689543], [106.60908869531639, 20.83014588573482]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61039777322299, 20.827989938914843], [106.61059384656582, 20.827906395975567], [106.61054578937394, 20.827813869924544], [106.6103468325996, 20.82789651455264], [106.61039777322299, 20.827989938914843]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61007675118128, 20.82916133668703], [106.61005464487302, 20.829261947538626], [106.61019689416096, 20.829284405318003], [106.61021900046921, 20.829176607977004], [106.61007675118128, 20.82916133668703]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61235466207602, 20.830312971613367], [106.61220760706888, 20.830337226015093], [106.61223740252784, 20.830457599712542], [106.61237676838427, 20.830428853754942], [106.61235466207602, 20.830312971613367]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61224220824703, 20.833066295364716], [106.61199423313697, 20.83307438016529], [106.61200096114383, 20.83317858426159], [106.61224797511005, 20.833170499461016], [106.61224220824703, 20.833066295364716]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61044871384637, 20.828260330578512], [106.61041891838741, 20.828170499461013], [106.61029493083238, 20.828203736974487], [106.61032472629134, 20.82829446640316], [106.61044871384637, 20.828260330578512]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61339269742045, 20.830868127919512], [106.61332637849566, 20.830973230326986], [106.61337059111219, 20.83100107797341], [106.61363778909899, 20.830987603305786], [106.61368200171552, 20.831010959396334], [106.61373005890738, 20.83094538268056], [106.61369834116076, 20.83092921307941], [106.61369353544156, 20.830854653251887], [106.61339269742045, 20.830868127919512]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61437690870999, 20.829063420768957], [106.61420198053156, 20.829052641034853], [106.61419333023703, 20.82916672655408], [106.61436633612777, 20.829181099532878], [106.61437690870999, 20.829063420768957]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60972977825597, 20.82902299676608], [106.60984992123565, 20.829072403880705], [106.60986433839321, 20.829040064678406], [106.60988932813298, 20.829052641034853], [106.60991431787275, 20.828982572763206], [106.60979321374923, 20.828888250089832], [106.60977014629714, 20.828901724757458], [106.60969037135862, 20.828853215954005], [106.60964519759827, 20.828905318002157], [106.60974035083818, 20.828987064319083], [106.60972977825597, 20.82902299676608]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6122441305347, 20.82900862378728], [106.61240752498706, 20.829034674811354], [106.61242770900766, 20.828916097736258], [106.61227008141832, 20.828892741645706], [106.6122441305347, 20.82900862378728]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61233159462391, 20.82856036651096], [106.61217973389759, 20.828535213798062], [106.61215570530166, 20.828655587495508], [106.61230468259646, 20.828681638519583], [106.61233159462391, 20.82856036651096]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6083726431575, 20.82908767517068], [106.60838706031507, 20.829174811354655], [106.60843896208229, 20.829262845849804], [106.60857352221953, 20.829238591448078], [106.60857928908254, 20.82925296442688], [106.6087321109527, 20.82923320158103], [106.60869270405537, 20.829023895077256], [106.6083726431575, 20.82908767517068]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61256515257641, 20.82966708587855], [106.61255073541885, 20.829843154868847], [106.61266991725469, 20.829854832914123], [106.61268914013144, 20.8296760689903], [106.61256515257641, 20.82966708587855]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60955004435836, 20.828810995328784], [106.60950006487882, 20.828774164570607], [106.60937511617995, 20.828904419690982], [106.60942894023485, 20.828947538627382], [106.60955004435836, 20.828810995328784]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61251613424069, 20.828747215235357], [106.61254016283664, 20.828649299317284], [106.61245942675428, 20.828611570247936], [106.61236619580205, 20.82861965504851], [106.61234793406915, 20.828706791232484], [106.61242578671998, 20.828741825368308], [106.61251613424069, 20.828747215235357]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61194905937661, 20.83229284944305], [106.61181161580785, 20.832301832554798], [106.6118202661024, 20.83239435860582], [106.61196443767801, 20.832388070427598], [106.61194905937661, 20.83229284944305]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61286214602218, 20.83159486166008], [106.61274584761784, 20.83160743801653], [106.6127573813439, 20.83170715055695], [106.6128756020359, 20.831696370822854], [106.61286214602218, 20.83159486166008]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61284388428926, 20.830056952928494], [106.61283427285089, 20.830177326625943], [106.6130063175978, 20.83018361480417], [106.61301881246769, 20.830064139417896], [106.61284388428926, 20.830056952928494]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61221529621959, 20.83011354653252], [106.61224701396621, 20.830222242184693], [106.61246134904196, 20.830157563780094], [106.61242482557614, 20.83004886812792], [106.61221529621959, 20.83011354653252]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61253055139827, 20.832861480416817], [106.61264877209027, 20.83309593963349], [106.6127987105289, 20.83303305785124], [106.61267856754922, 20.832797700323393], [106.61253055139827, 20.832861480416817]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60950006487882, 20.828715774344232], [106.60946738598834, 20.828653790873158], [106.6093635824539, 20.828708587854834], [106.60940683392658, 20.82876877470356], [106.60950006487882, 20.828715774344232]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6118356444038, 20.828554078332733], [106.61186447871891, 20.82843639956881], [106.61151173893057, 20.828359144807763], [106.61147809889627, 20.828482213438736], [106.6118356444038, 20.828554078332733]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61309954855003, 20.829857527847647], [106.61323795326261, 20.829861121092346], [106.61324179783797, 20.82975781530722], [106.61310339312537, 20.82974973050665], [106.61309954855003, 20.829857527847647]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61327063215309, 20.82984405318002], [106.61340519229033, 20.82986471433705], [106.61343306546162, 20.829767696730148], [106.613288893886, 20.829740747394897], [106.61327063215309, 20.82984405318002]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61303515191291, 20.835578871721165], [106.61305821936502, 20.835437836866692], [106.61307167537873, 20.83533902263744], [106.61273335274797, 20.835282429033416], [106.61271509101505, 20.835390226374415], [106.61269490699446, 20.83549353215954], [106.61283138941938, 20.83552048149479], [106.61282466141252, 20.835546532518865], [106.61287848546742, 20.83555461731944], [106.61288136889893, 20.83558156665469], [106.61295441583057, 20.835593244699965], [106.6129601826936, 20.83557078692059], [106.61303515191291, 20.835578871721165]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "X"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61262186006282, 20.83073068630974], [106.61259975375455, 20.830922026590013], [106.61272374130958, 20.830935501257635], [106.61274584761784, 20.830740567732665], [106.61262186006282, 20.83073068630974]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61280447739193, 20.83043424362199], [106.61282850598786, 20.830314768235716], [106.61271316872737, 20.830304886812794], [106.61270644072052, 20.830429752066117], [106.61280447739193, 20.83043424362199]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60968556563944, 20.829718289615524], [106.60946354141299, 20.829843154868847], [106.60964615874211, 20.83008120733022], [106.6098412709411, 20.829959037010422], [106.60968556563944, 20.829718289615524]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60927227378934, 20.830330937836866], [106.60927804065237, 20.830206970894718], [106.60911752963152, 20.830194394538267], [106.60910503476163, 20.83031836148042], [106.60927227378934, 20.830330937836866]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61205766863024, 20.82877596119296], [106.61193944793824, 20.828756198347108], [106.61190869133544, 20.828918792669782], [106.6120259508836, 20.82893855551563], [106.61205766863024, 20.82877596119296]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61199231084929, 20.83259019044197], [106.61200384457534, 20.832689902982395], [106.61215378301398, 20.83267822493712], [106.6121489772948, 20.832578512396694], [106.61199231084929, 20.83259019044197]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61212206526734, 20.82851724757456], [106.61198654398628, 20.828492094861662], [106.61196251539033, 20.828613366870286], [106.61209899781525, 20.828638519583183], [106.61212206526734, 20.82851724757456]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61139736281392, 20.82888465684513], [106.61126664725202, 20.828852317642834], [106.61109748593664, 20.829377829680205], [106.61109268021745, 20.82944789795185], [106.61112920368328, 20.829657204455625], [106.61125895810133, 20.82963474667625], [106.61122243463551, 20.829481135465326], [106.61122339577935, 20.829421846927776], [106.61123685179307, 20.8293670499461], [106.61139736281392, 20.82888465684513]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61168747129297, 20.83081708899892], [106.6118297205809, 20.830791037974844], [106.61180184740962, 20.83069851192382], [106.61166728727238, 20.83072546125907], [106.61168747129297, 20.83081708899892]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6102930085447, 20.828894538268056], [106.61022668961992, 20.82883884297521], [106.6101517204006, 20.82890980955803], [106.61022188390073, 20.828961911606182], [106.6102930085447, 20.828894538268056]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61236190504859, 20.831587633966585], [106.61204280529456, 20.831686448195832], [106.61208413447957, 20.831785262425083], [106.61240035080209, 20.831691838062884], [106.61236190504859, 20.831587633966585]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61189042960252, 20.834045454545453], [106.61191061362311, 20.83415415019763], [106.61196635996568, 20.834193675889328], [106.61210957039746, 20.834173014732304], [106.6121105315413, 20.83415774344233], [106.61214321043177, 20.834150556952928], [106.61216147216469, 20.834174811354654], [106.61217781160993, 20.834164929931728], [106.6121903064798, 20.83418289615523], [106.61215282187015, 20.834268235716852], [106.61217588932224, 20.834279913762128], [106.61214609386329, 20.8343742364355], [106.61224220824703, 20.83440477901545], [106.61226239226761, 20.834351778656128], [106.61228257628821, 20.834356270212], [106.6123210220417, 20.83426913402803], [106.6123027603088, 20.834259252605104], [106.61237869067195, 20.834056234279554], [106.61219703448667, 20.833984369385554], [106.61218838419214, 20.834023895077255], [106.61215282187015, 20.834025691699605], [106.61214417157561, 20.833978979518506], [106.61189042960252, 20.834045454545453]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61148963262231, 20.830429752066117], [106.6112993261425, 20.830462091268416], [106.61137429536183, 20.83084387351779], [106.61154730125256, 20.83081602587136], [106.61148963262231, 20.830429752066117]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6127756430768, 20.83088789076536], [106.61291789236475, 20.83090226374416], [106.61293903752917, 20.83075224577794], [106.61279774938507, 20.830731584620914], [106.6127756430768, 20.83088789076536]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61248441649407, 20.82903916636723], [106.61261417091212, 20.829029284944305], [106.61260936519294, 20.829011318720806], [106.61268914013144, 20.82899425080848], [106.61267856754922, 20.828896334890405], [106.61247672734336, 20.82891340280273], [106.61248441649407, 20.82903916636723]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6107908810525, 20.83267463169242], [106.61074378500446, 20.83276446280992], [106.6108600834088, 20.83281117499102], [106.6109091017445, 20.83271954725117], [106.6107908810525, 20.83267463169242]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6113300827453, 20.832788717211642], [106.6114944383415, 20.83298993891484], [106.61146848745788, 20.83300970176069], [106.61152711723197, 20.83308515989939], [106.61154537896489, 20.83307438016529], [106.6115559515471, 20.83308695652174], [106.61162611504723, 20.833050125763563], [106.61161842589654, 20.83302946460654], [106.61166936651992, 20.83299353215954], [106.61143484742358, 20.83272314049587], [106.61131566558774, 20.832669241825368], [106.61126280267668, 20.832744699964067], [106.6113300827453, 20.832788717211642]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61159723664598, 20.831591291502054], [106.61134926153592, 20.831604766169676], [106.61135695068661, 20.831729631423], [106.6116001200775, 20.83172783480065], [106.61159723664598, 20.831591291502054]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61332926192718, 20.82903018325548], [106.61320815780365, 20.82901221703198], [106.6131937406461, 20.82911462450593], [106.61331580591344, 20.829126302551206], [106.61332926192718, 20.82903018325548]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60883975906249, 20.82966349263385], [106.60882438076109, 20.829575458138702], [106.60874268353491, 20.829585339561625], [106.60875325611713, 20.82967067912325], [106.60883975906249, 20.82966349263385]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61408664327108, 20.829065217391307], [106.6138819196337, 20.829049047790154], [106.61386750247614, 20.82917391304348], [106.61407126496968, 20.829194574200503], [106.61408664327108, 20.829065217391307]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61244981531591, 20.834714696370824], [106.61234697292531, 20.834976104922745], [106.61248729992558, 20.835025512037372], [106.61257284172711, 20.834828781890046], [106.61261320976828, 20.834838663312972], [106.61262954921352, 20.834804527488323], [106.61295441583057, 20.83476859504132], [106.6129601826936, 20.834795544376572], [106.61312357714596, 20.834773984908374], [106.61309954855003, 20.834620373697447], [106.61265069437795, 20.83467067912325], [106.61249883365163, 20.834624865253325], [106.61246519361731, 20.834721882860222], [106.61244981531591, 20.834714696370824]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "V"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6125315125421, 20.835393819619117], [106.61248153306255, 20.835182716492994], [106.61234985635683, 20.835215055695294], [106.6124084861309, 20.83541627739849], [106.6125315125421, 20.835393819619117]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61292077579627, 20.829712899748472], [106.6129140477894, 20.829846748113546], [106.61305821936502, 20.829850341358245], [106.61305821936502, 20.829714696370825], [106.61292077579627, 20.829712899748472]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61264108293956, 20.83030039525692], [106.61245077645975, 20.83030129356809], [106.61245269874743, 20.830418972332016], [106.61264300522724, 20.83041807402084], [106.61264108293956, 20.83030039525692]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61336962996835, 20.83049892202659], [106.6133965419958, 20.830374955084444], [106.61312742172132, 20.83034261588214], [106.61310435426921, 20.830470176068992], [106.61336962996835, 20.83049892202659]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.610090207195, 20.830069529284945], [106.61019401072944, 20.830259971254044], [106.61036317204484, 20.830186309737694], [106.61032280400366, 20.830123427955446], [106.6102776302433, 20.830141394178945], [106.61024495135283, 20.830089292130797], [106.6102930085447, 20.830064139417896], [106.61024495135283, 20.829997664390948], [106.610090207195, 20.830069529284945]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61354744157828, 20.834660797700323], [106.61351860726315, 20.834518864534676], [106.61333695107787, 20.834547610492276], [106.61337059111219, 20.834691340280276], [106.61354744157828, 20.834660797700323]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61184910041752, 20.834734459216673], [106.61185967299973, 20.83484045993532], [106.61196732110952, 20.835010240747398], [106.61203460117814, 20.835003054257996], [106.6120874640892, 20.834818900467123], [106.61202210630826, 20.834698526769674], [106.61184910041752, 20.834734459216673]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61263627722037, 20.832018864534675], [106.61249883365163, 20.83201616960115], [106.61248441649407, 20.832114085519223], [106.61263243264503, 20.8321221703198], [106.61263627722037, 20.832018864534675]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61116188257375, 20.829786561264825], [106.61125415238214, 20.830240208408195], [106.6114454200058, 20.83018181818182], [106.611414663403, 20.830024613726195], [106.61149347719767, 20.83001293568092], [106.61157613556769, 20.83000754581387], [106.61161169788967, 20.83000574919152], [106.61161650360886, 20.830024613726195], [106.61157805785535, 20.83002730865972], [106.6114636817387, 20.830063241106718], [106.61148290461546, 20.830180021559467], [106.6117203071433, 20.83011354653252], [106.61171934599946, 20.830091088753147], [106.61180008208181, 20.830071325907294], [106.611804887801, 20.830003054257997], [106.61176355861599, 20.829644628099174], [106.61163860991712, 20.82964552641035], [106.61163668762944, 20.829630255120374], [106.61140120738926, 20.829666187567373], [106.61138582908787, 20.829751527128998], [106.6113608393481, 20.829754222062522], [106.61136756735496, 20.8297335609055], [106.61114938770386, 20.829715594682], [106.61116188257375, 20.829786561264825]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "W"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60985857153018, 20.829620373697452], [106.60973458397515, 20.82964911965505], [106.60981435891365, 20.829761408551924], [106.6098566492425, 20.82975781530722], [106.60985857153018, 20.829620373697452]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60904640498754, 20.828846927775782], [106.60904159926835, 20.828755300035933], [106.6090118038094, 20.828760689902982], [106.60900507580253, 20.828694214876034], [106.60909542332325, 20.82869511318721], [106.6090810061657, 20.82856575637801], [106.60900219237102, 20.828508264462812], [106.60899738665184, 20.82847592526051], [106.60891280599414, 20.828482213438736], [106.60891761171332, 20.82850287459576], [106.60878209043224, 20.82851365432986], [106.60878977958295, 20.82856934962271], [106.60874845039794, 20.828573841178585], [106.60873883895957, 20.828521739130437], [106.60870712121293, 20.828519942508088], [106.60870231549374, 20.82850107797341], [106.6085139313016, 20.828532518864534], [106.60852162045231, 20.828573841178585], [106.60845337923985, 20.82858192597916], [106.60846875754125, 20.82862684153791], [106.60828998478748, 20.828672655407836], [106.6082803733491, 20.828653790873158], [106.60815542465023, 20.82869511318721], [106.60820252069827, 20.828828961552283], [106.6084495346645, 20.828763384836506], [106.6084677963974, 20.828790334171757], [106.60824000530793, 20.828863995688106], [106.60829671279434, 20.829004132231407], [106.60852354273997, 20.82893675889328], [106.60851008672626, 20.828901724757458], [106.60855333819894, 20.828885555156308], [106.60855814391813, 20.828901724757458], [106.60895701861067, 20.82888375853396], [106.60904640498754, 20.828846927775782]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "X"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61442881047721, 20.83004527488322], [106.61441727675115, 20.829961731943946], [106.61434230753183, 20.829954545454548], [106.61420870853843, 20.829967121810995], [106.61412701131225, 20.829985088034494], [106.6140722261135, 20.830018325547968], [106.61396842257908, 20.83010995328782], [106.61406261467513, 20.830162953647143], [106.61418371879866, 20.83007581746317], [106.61418948566168, 20.83009737693137], [106.61426349373717, 20.83009198706432], [106.61426349373717, 20.830063241106718], [106.61442881047721, 20.83004527488322]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61164726021165, 20.832409629895796], [106.61155210697174, 20.83246622349982], [106.61165975508155, 20.832627919511317], [106.61170108426656, 20.832610851598993], [106.611727996294, 20.83263869924542], [106.6117847037804, 20.832609953287818], [106.61164726021165, 20.832409629895796]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60846587410973, 20.829306863097376], [106.60854372676056, 20.82947305066475], [106.60860523996617, 20.829452389507725], [106.60857928908254, 20.829392202659], [106.60862254055523, 20.829369744879628], [106.60857832793872, 20.829263744160976], [106.60846587410973, 20.829306863097376]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61358877076329, 20.82889543657923], [106.61375985436635, 20.82890801293568], [106.61376850466088, 20.82879752066116], [106.61359453762631, 20.828786740927058], [106.61358877076329, 20.82889543657923]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61012769180466, 20.829843154868847], [106.60999313166742, 20.82984584980237], [106.60999985967429, 20.829995867768595], [106.61013249752385, 20.82998957959037], [106.61012769180466, 20.829843154868847]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61161362017735, 20.833581027667986], [106.61136948964264, 20.833611570247935], [106.61139447938241, 20.833764283147683], [106.61149347719767, 20.833753503413583], [106.61158574700606, 20.833739130434783], [106.6116482213555, 20.834043657923104], [106.6117510637461, 20.834026590010783], [106.61171357913643, 20.833660079051384], [106.61175490832144, 20.83365379087316], [106.61174049116389, 20.833572044556234], [106.6116818613898, 20.83317678763924], [106.61160304759514, 20.833180380883938], [106.61159728073211, 20.83315882141574], [106.6115559515471, 20.833166906216313], [106.61161362017735, 20.833581027667986]]]}, "properties": {"NATURE": "Industrial", "COMPANY": "Y"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61325429270785, 20.83442993172835], [106.61323699211877, 20.83430686309738], [106.61308993711165, 20.834323931009703], [106.61311204341992, 20.83444789795185], [106.61325429270785, 20.83442993172835]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61272278016575, 20.835730686309738], [106.61267568411772, 20.835835788717212], [106.61285926259066, 20.83590945023356], [106.61290731978254, 20.835807042759612], [106.61272278016575, 20.835730686309738]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60936166016623, 20.829336507366154], [106.60930879725517, 20.829415558749552], [106.60936166016623, 20.829650017966223], [106.60941644536496, 20.829680560546173], [106.60938376647448, 20.82972817103845], [106.60949237572811, 20.82980093424362], [106.60953851063232, 20.829790154509524], [106.60959425697489, 20.8296832554797], [106.6095356272008, 20.829639238232122], [106.60949045344044, 20.829400287459578], [106.60936166016623, 20.829336507366154]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61350130667408, 20.83126787639238], [106.61314952802957, 20.831284944304706], [106.61316778976249, 20.83143047071506], [106.6135176461193, 20.831409809558032], [106.61350130667408, 20.83126787639238]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60899258093265, 20.829883578871723], [106.60914348051513, 20.829839561624148], [106.60910887933697, 20.8297587136184], [106.60904640498754, 20.82977578153072], [106.60903967698069, 20.829759611929575], [106.60894164030927, 20.829791951131874], [106.6089627854737, 20.829854832914123], [106.60898200835044, 20.829852137980595], [106.60899258093265, 20.829883578871723]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61416161249039, 20.82892418253683], [106.61442592704569, 20.828959216672658], [106.6144441887786, 20.82884153790873], [106.61418083536715, 20.828802910528207], [106.61416161249039, 20.82892418253683]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60858601708941, 20.828265720445565], [106.60858697823325, 20.82837082285304], [106.60871096578828, 20.82837082285304], [106.60871000464444, 20.828266618756736], [106.60858601708941, 20.828265720445565]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6134378711808, 20.835797161336686], [106.61362241079759, 20.835530362917716], [106.61349842324256, 20.835456701401366], [106.6134378711808, 20.835415379087316], [106.61332926192718, 20.835555515630617], [106.61323699211877, 20.835675889328062], [106.6134378711808, 20.835797161336686]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61045832528474, 20.83224973050665], [106.6104573641409, 20.832374595759973], [106.61066112663444, 20.832373697448798], [106.61072552327155, 20.832361121092347], [106.61076300788122, 20.83234045993532], [106.6108062593539, 20.832297340998924], [106.61085816112112, 20.832179662235], [106.61071687297701, 20.832121272008624], [106.61068034951118, 20.8321976284585], [106.61064863176456, 20.832230865971972], [106.61061979744943, 20.8322479338843], [106.61058135169594, 20.832254222062524], [106.61045832528474, 20.83224973050665]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61299286158408, 20.830741466043836], [106.61297652213884, 20.830879805964788], [106.61312742172132, 20.83088968738771], [106.61314472231038, 20.83075763564499], [106.61299286158408, 20.830741466043836]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61029973655157, 20.828309737693136], [106.6102622519419, 20.82822529644269], [106.61016517641433, 20.828266618756736], [106.61020458331166, 20.828345670140138], [106.61029973655157, 20.828309737693136]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61217877275377, 20.832918074020842], [106.61234793406915, 20.832909989220266], [106.61233543919926, 20.83279141214517], [106.61216820017155, 20.832808480057494], [106.61217877275377, 20.832918074020842]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61289001919346, 20.828945742005033], [106.61273623617947, 20.82892238591448], [106.61271412987121, 20.82904455623428], [106.61287079631671, 20.829067014013656], [106.61289001919346, 20.828945742005033]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61232967233623, 20.831233740567733], [106.61242290328846, 20.831232842256558], [106.61242674786382, 20.831134926338486], [106.61232006089786, 20.831140316205534], [106.61232967233623, 20.831233740567733]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6125113285215, 20.830693855551566], [106.61237676838427, 20.830740567732665], [106.61244116502138, 20.830868127919512], [106.61256707486409, 20.83081692418254], [106.6125113285215, 20.830693855551566]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60835630371227, 20.82916313330938], [106.60832458596563, 20.829084980237155], [106.6082390441641, 20.82912001437298], [106.60826691733538, 20.82918648939993], [106.6081957926914, 20.829212540424002], [106.60823231615723, 20.829325727632053], [106.6083082465204, 20.829298778296803], [106.60828325678062, 20.829196370822853], [106.60835630371227, 20.82916313330938]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61079953134703, 20.832936938555516], [106.61048619845603, 20.832985447358965], [106.6105083047643, 20.83313187208049], [106.61057174025756, 20.833129177146965], [106.61056693453837, 20.83311031261229], [106.61062171973711, 20.83310492274524], [106.61063325346316, 20.833134567014014], [106.61070341696329, 20.83312827883579], [106.61069284438108, 20.833073481854115], [106.61081490964843, 20.833060905497668], [106.61079953134703, 20.832936938555516]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61293423180999, 20.82936525332375], [106.61295057125523, 20.82925116780453], [106.61281216654262, 20.82922960833633], [106.61279390480972, 20.829351778656125], [106.61293423180999, 20.82936525332375]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60982781492739, 20.83372924901186], [106.60972497253678, 20.833631333093784], [106.60964808102977, 20.83370050305426], [106.60975092342039, 20.833796622349983], [106.60982781492739, 20.83372924901186]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61360318792084, 20.82899425080848], [106.61344075461231, 20.828982572763206], [106.61342633745475, 20.829106539705354], [106.6135839650441, 20.82912540424003], [106.61360318792084, 20.82899425080848]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61208169722617, 20.829346388789077], [106.61210380353444, 20.829208947179303], [106.61194329251359, 20.82918828602228], [106.61192022506148, 20.829332914121455], [106.61208169722617, 20.829346388789077]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61011615807861, 20.831373877111034], [106.6102747468118, 20.83148886094143], [106.6103929675038, 20.83135860582106], [106.61021900046921, 20.831232842256558], [106.61011615807861, 20.831373877111034]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61362144965375, 20.8294532878189], [106.61364932282504, 20.829333812432626], [106.61347439464663, 20.829305964786204], [106.61344459918767, 20.8294209486166], [106.61362144965375, 20.8294532878189]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60999313166742, 20.829809917355373], [106.61017190442118, 20.829796442687748], [106.6101747878527, 20.829682357168522], [106.61007386774976, 20.82967786561265], [106.61006810088674, 20.829708408192598], [106.60998928709208, 20.829711103126122], [106.60999313166742, 20.829809917355373]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61048235388068, 20.828273805246138], [106.61072744555922, 20.828192058929215], [106.6106986112441, 20.828116600790516], [106.61053906136709, 20.828157024793388], [106.61053137221639, 20.828130973769316], [106.61043718012031, 20.82816241466044], [106.61048235388068, 20.828273805246138]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6092146051591, 20.829254761049228], [106.60920307143304, 20.829287100251527], [106.60921076058375, 20.829331117499102], [106.60928188522772, 20.829369744879628], [106.60935397101552, 20.829264642472154], [106.60938857219368, 20.82927811713978], [106.60941260078961, 20.829241286381603], [106.60937415503611, 20.829219726913404], [106.60945681340613, 20.829201760689905], [106.6094481631116, 20.82913079410708], [106.60939433905669, 20.82910025152713], [106.60933378699494, 20.829111929572406], [106.60934147614564, 20.82915055695293], [106.60930495267982, 20.829162234998204], [106.60927707950853, 20.82914516708588], [106.6092146051591, 20.829254761049228]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60961155756395, 20.82798454904779], [106.6094664248445, 20.828107617678764], [106.60954812207069, 20.828184872439813], [106.60968268220793, 20.82806000718649], [106.60961155756395, 20.82798454904779]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60940106706356, 20.82839507725476], [106.60922710002899, 20.828506467840462], [106.6092991858168, 20.828602587136185], [106.60937319389227, 20.82856036651096], [106.6093895333375, 20.828579231045634], [106.60944720196775, 20.828545095220985], [106.60942701794717, 20.82852623068631], [106.60949141458428, 20.828482213438736], [106.60946450255683, 20.828449874236437], [106.60950006487882, 20.82842741645706], [106.60944912425543, 20.828358246496588], [106.60940106706356, 20.82839507725476]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60873595552805, 20.829567373338126], [106.60874364467875, 20.82950538986705], [106.60872634408967, 20.829502694933527], [106.60872538294583, 20.8294784405318], [106.608647530295, 20.829481135465326], [106.60865041372652, 20.8295682716493], [106.60873595552805, 20.829567373338126]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61004887800999, 20.82932482932088], [106.61003157742091, 20.82943352497305], [106.61016805984583, 20.82945418613008], [106.61018728272259, 20.829343693855552], [106.61004887800999, 20.82932482932088]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6121749281784, 20.829894358605824], [106.61232390547322, 20.829895256916995], [106.61232967233623, 20.829783866331297], [106.61216723902771, 20.829782968020123], [106.6121749281784, 20.829894358605824]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61302073475535, 20.83043604024434], [106.61304284106362, 20.830312073302192], [106.61289482491264, 20.830295005389868], [106.61287175746055, 20.830415379087317], [106.61302073475535, 20.83043604024434]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61266126696016, 20.831871541501975], [106.61264877209027, 20.831787998562703], [106.61254785198733, 20.8317951850521], [106.61256130800106, 20.831879626302552], [106.61266126696016, 20.831871541501975]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60985280466716, 20.82943711821775], [106.60969806050933, 20.829455982752428], [106.60972208910526, 20.829592526051023], [106.60987587211926, 20.829571864894], [106.60985280466716, 20.82943711821775]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61208361951385, 20.83052587136184], [106.61205574634256, 20.830422565576715], [106.6119567485273, 20.830441430111392], [106.61198366055476, 20.83054383758534], [106.61208361951385, 20.83052587136184]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60843703979461, 20.829780273086598], [106.60865137487036, 20.829804527488324], [106.6086629085964, 20.829693136902623], [106.60845434038369, 20.829669780812075], [106.60843703979461, 20.829780273086598]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6123777295281, 20.83234944304707], [106.61236523465823, 20.832221882860225], [106.61221337393191, 20.832230865971972], [106.61222682994563, 20.832362019403522], [106.6123777295281, 20.83234944304707]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6116482213555, 20.836028925619836], [106.61174721917075, 20.83588429752066], [106.61160112530746, 20.83580075458139], [106.61157517442385, 20.835838483650736], [106.61161458132118, 20.835860941430113], [106.61154153438953, 20.835967840459936], [106.6116482213555, 20.836028925619836]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61034779374344, 20.831475386273805], [106.61025071821585, 20.831581386992454], [106.61050349904511, 20.831762845849806], [106.61059961342885, 20.831646963708227], [106.61034779374344, 20.831475386273805]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61262186006282, 20.832461731943944], [106.61266799496701, 20.832609953287818], [106.61278621565901, 20.83257761408552], [106.61278717680285, 20.83260276679842], [106.61287175746055, 20.832610851598993], [106.6128832911866, 20.83258839381962], [106.61298517243337, 20.832621631333094], [106.61304956907048, 20.832483291412146], [106.6128419620016, 20.832397053539346], [106.61262186006282, 20.832461731943944]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60981243662599, 20.82855677326626], [106.609741311982, 20.828609773625587], [106.60979417489307, 20.82866457060726], [106.6098691441124, 20.82860887531441], [106.60981243662599, 20.82855677326626]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61043525783265, 20.830231225296444], [106.61094466406648, 20.830139597556595], [106.61092255775823, 20.83001473230327], [106.61074955186749, 20.83004886812792], [106.61073321242225, 20.829959935321597], [106.61039873436683, 20.830015630614447], [106.61040738466136, 20.830109054976646], [106.61043525783265, 20.830231225296444]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61207689150699, 20.82895113187208], [106.61221433507575, 20.828971793029105], [106.6122335579525, 20.828845131153432], [106.61209419209607, 20.82882626661876], [106.61207689150699, 20.82895113187208]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61098887668301, 20.83279680201222], [106.61090717945683, 20.83294143011139], [106.61102636129267, 20.832992633848367], [106.61104942874476, 20.83293963348904], [106.61106865162152, 20.83294681997844], [106.61104270073791, 20.832998023715415], [106.61113785397781, 20.833037549407116], [106.61117245515597, 20.83297197269134], [106.61107249619687, 20.83292885375494], [106.61111766995722, 20.83284800574919], [106.61098887668301, 20.83279680201222]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61195482623964, 20.83034261588214], [106.61194809823277, 20.83023032698527], [106.61169435625969, 20.830242903341716], [106.61169627854737, 20.830349802371543], [106.61195482623964, 20.83034261588214]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61343402660545, 20.83009198706432], [106.6134301820301, 20.830197987782967], [106.61363106109214, 20.83020158102767], [106.61363394452364, 20.830082105641395], [106.61343402660545, 20.83009198706432]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61474694908739, 20.828943047071505], [106.61472292049146, 20.828808300395256], [106.61454895345689, 20.82883974128638], [106.61457586548433, 20.828969996406755], [106.61474694908739, 20.828943047071505]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61311588799526, 20.830035393460296], [106.61310819884456, 20.83014408911247], [106.61330715561891, 20.83015486884657], [106.6133196504888, 20.83003988501617], [106.61311588799526, 20.830035393460296]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61028243596249, 20.827938735177867], [106.61025264050353, 20.827884836507366], [106.61010654664024, 20.82794143011139], [106.61012288608548, 20.828003413582465], [106.61000850996882, 20.82804922745239], [106.61005752830454, 20.828130075458137], [106.61031799828447, 20.828021379805968], [106.61028243596249, 20.827938735177867]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61224701396621, 20.832503952569173], [106.6122518196854, 20.83260276679842], [106.61233447805543, 20.832630614444845], [106.61240656384324, 20.83259558030902], [106.61240464155556, 20.832492274523897], [106.61224701396621, 20.832503952569173]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61121570662864, 20.831977542220628], [106.61114169855315, 20.832054796981677], [106.61124261865609, 20.8321365432986], [106.61122916264237, 20.8321509162774], [106.61134930562204, 20.83225332375135], [106.6114329251359, 20.83216349263385], [106.61121570662864, 20.831977542220628]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61189427417787, 20.83264768235717], [106.61173760773238, 20.832731225296442], [106.61179527636261, 20.832806683435145], [106.61194425365743, 20.832725835429393], [106.61189427417787, 20.83264768235717]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.60971536109841, 20.829065217391307], [106.60968941021478, 20.829140675530002], [106.60966249818735, 20.829189184333455], [106.60965673132432, 20.829242184692777], [106.60966249818735, 20.82927452389508], [106.60967595420107, 20.829375134746677], [106.6097999417561, 20.82936435501258], [106.60979033031772, 20.829298778296803], [106.60981628120133, 20.829290693496226], [106.60980859205064, 20.8292305066475], [106.60983069835889, 20.829190980955804], [106.60980090289993, 20.82917391304348], [106.60983646522192, 20.829111031261228], [106.60971536109841, 20.829065217391307]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61221241278807, 20.83127146963708], [106.6121105315413, 20.831304707150558], [106.61214705500713, 20.831412504491556], [106.61212398755502, 20.831418792669783], [106.61215762758934, 20.831504132231405], [106.61228449857587, 20.831461013295005], [106.61221241278807, 20.83127146963708]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.6126084040491, 20.83159306503773], [106.61257668630246, 20.83149964067553], [106.61245654332278, 20.831525691699603], [106.61248633878174, 20.831622709306505], [106.6126084040491, 20.83159306503773]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61258918117234, 20.830024613726195], [106.61258149202165, 20.83014229249012], [106.61275545905622, 20.830149478979518], [106.61276410935076, 20.830031800215593], [106.61258918117234, 20.830024613726195]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61188754617102, 20.83292346388789], [106.61189331303405, 20.833010600071866], [106.61203556232198, 20.833005210204814], [106.61203171774663, 20.83291987064319], [106.61188754617102, 20.83292346388789]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61154345667721, 20.832123068630974], [106.61155114582792, 20.83221020481495], [106.61149155490999, 20.832219187926697], [106.61151173893057, 20.83229554437657], [106.61165975508155, 20.83223895077255], [106.61163668762944, 20.832117678763925], [106.61154345667721, 20.832123068630974]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[106.61404819751758, 20.830347107438016], [106.61368296285936, 20.830410887531443], [106.613720447469, 20.830562702120016], [106.61407414840119, 20.83049353215954], [106.61404819751758, 20.830347107438016]]]}, "properties": {"NATURE": "Residential", "COMPANY": ""}}]}};
+
+// ═══════════════════════════════════════════════════
+//  BOOT SEQUENCE
+// ═══════════════════════════════════════════════════
+const BOOT = [
+  {t:'ok',  m:'Kết nối PostgreSQL 15.2 localhost:5432'},
+  {t:'ok',  m:'CREATE EXTENSION postgis VERSION 3.4.0'},
+  {t:'ok',  m:'CREATE EXTENSION postgis_topology'},
+  {t:'ok',  m:'shp2pgsql -I -s 3405 garbadge.shp | psql'},
+  {t:'ok',  m:'ST_Transform(geom, 4326) → WGS84 ✓'},
+  {t:'ok',  m:'Loaded: garbadge (11 features, Point)'},
+  {t:'ok',  m:'Loaded: building (174 features, Polygon)'},
+  {t:'ok',  m:'Loaded: road (110 features, Polyline)'},
+  {t:'ok',  m:'Loaded: bounds (1 feature, Polygon)'},
+  {t:'ok',  m:'CREATE INDEX ON garbage USING GIST (geom)'},
+  {t:'ok',  m:'CREATE INDEX ON buildings USING GIST (geom)'},
+  {t:'warn',m:'⚠ Phát hiện 11 điểm xả thải công nghiệp'},
+  {t:'warn',m:'⚠ Mức ô nhiễm không khí: 78% — NGUY HIỂM'},
+  {t:'ok',  m:'Khởi động Particle Engine v3.1'},
+  {t:'ok',  m:'Khởi động Traffic Simulation'},
+  {t:'ok',  m:'Hazard Map System v3.0 — READY ✓'},
+];
+const logEl = document.getElementById('boot-log');
+let bi=0;
+function bootNext() {
+  if(bi>=BOOT.length){
+    const btn=document.getElementById('enter-btn');
+    btn.style.display='block';
+    setTimeout(()=>btn.style.opacity='1',50);
+    return;
+  }
+  const line=BOOT[bi++];
+  const div=document.createElement('div');
+  div.className='boot-line boot-'+line.t;
+  div.textContent=(line.t==='ok'?'[OK]  ':line.t==='warn'?'[WARN] ':'[ERR]  ')+line.m;
+  logEl.appendChild(div);
+  requestAnimationFrame(()=>div.classList.add('show'));
+  logEl.scrollTop=9999;
+  setTimeout(bootNext, line.t==='warn'?350:100);
+}
+setTimeout(bootNext,600);
+
+function launch() {
+  document.getElementById('intro').classList.add('fade-out');
+  setTimeout(()=>{ document.getElementById('intro').style.display='none'; },1200);
+  document.getElementById('app').classList.add('on');
+  setTimeout(initAll,400);
+}
+
+// ═══════════════════════════════════════════════════
+//  CLOCK + SENSORS
+// ═══════════════════════════════════════════════════
+function tick(){
+  document.getElementById('hud-clock').textContent=new Date().toLocaleTimeString('vi-VN');
+}
+setInterval(tick,1000); tick();
+
+// Fluctuating sensor values
+const sensors=[
+  {id:'air',  fill:'sf-air',   base:78,  range:8,  el:null, fel:null},
+  {id:'water',fill:'sf-water', base:55,  range:10, el:null, fel:null},
+  {id:'soil', fill:'sf-soil',  base:42,  range:6,  el:null, fel:null},
+  {id:'noise',fill:'sf-noise', base:31,  range:12, el:null, fel:null},
+];
+sensors.forEach(s=>{ s.el=document.getElementById('sv-'+s.id); s.fel=document.getElementById(s.fill); });
+function updateSensors(){
+  sensors.forEach(s=>{
+    const v=Math.max(10,Math.min(99, s.base+(Math.random()-.5)*s.range)).toFixed(0);
+    s.el.textContent=v+'%'; s.fel.style.width=v+'%';
+  });
+}
+setInterval(updateSensors,2500);
+
+// ═══════════════════════════════════════════════════
+//  SIDEBAR SECTIONS
+// ═══════════════════════════════════════════════════
+function toggleSection(hdr){
+  hdr.classList.toggle('open');
+  const body=hdr.nextElementSibling;
+  body.classList.toggle('open');
+}
+let sidebarOpen=true;
+function toggleSidebar(){
+  sidebarOpen=!sidebarOpen;
+  const sb=document.getElementById('sidebar');
+  const toggle=document.getElementById('sb-toggle');
+  const mapEl=document.getElementById('map');
+  const cvs=document.getElementById('canvas-over');
+  if(sidebarOpen){
+    sb.classList.remove('collapsed');
+    toggle.textContent='◀'; toggle.classList.remove('collapsed');
+    mapEl.classList.remove('expanded'); cvs.classList.remove('expanded');
+  } else {
+    sb.classList.add('collapsed');
+    toggle.textContent='▶'; toggle.classList.add('collapsed');
+    mapEl.classList.add('expanded'); cvs.classList.add('expanded');
+  }
+  setTimeout(()=>{ if(map)map.invalidateSize(); },420);
+}
+
+// ═══════════════════════════════════════════════════
+//  MAP & LEAFLET
+// ═══════════════════════════════════════════════════
+let map, layers={}, qLayers=[];
+
+const TILE_URLS={
+  osm:       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  topo:      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+};
+let curTile='osm', tileLayer;
+
+function initAll(){
+  map=L.map('map',{center:[20.832,106.612],zoom:16,zoomControl:true,attributionControl:true});
+  tileLayer=L.tileLayer(TILE_URLS.osm,{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);
+  L.control.scale({imperial:false,position:'bottomright'}).addTo(map);
+
+  map.on('zoom',()=>{
+    const z=map.getZoom();
+    document.getElementById('hud-zoom').textContent=z;
+    document.getElementById('sb-zoom-val').textContent=z;
+  });
+  map.on('mousemove',e=>{
+    document.getElementById('sb-coords').textContent=`${e.latlng.lng.toFixed(5)}°E  ${e.latlng.lat.toFixed(5)}°N`;
+  });
+
+  buildGeoLayers();
+  map.fitBounds(layers.bounds.getBounds(),{padding:[30,30]});
+  initCanvas();
+  drawWindRose(0);
+  // Slowly rotate wind direction
+  let windAngle=0;
+  setInterval(()=>{ windAngle=(windAngle+0.5)%360; drawWindRose(windAngle); }, 100);
+}
+
+function setBM(key,btn){
+  map.removeLayer(tileLayer);
+  tileLayer=L.tileLayer(TILE_URLS[key],{maxZoom:key==='topo'?17:20,attribution:`© ${key}`}).addTo(map);
+  curTile=key;
+  document.querySelectorAll('.bm-pill').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════
+//  GEO LAYERS
+// ═══════════════════════════════════════════════════
+let buildingOpacity=0.6;
+
+function buildGeoLayers(){
+  layers.bounds=L.geoJSON(GD.bounds,{
+    style:{color:'#ffd200',weight:2.5,fillColor:'#ffd200',fillOpacity:.05,dashArray:'12,6'}
+  }).addTo(map);
+
+  layers.building=L.geoJSON(GD.building,{
+    style:f=>{
+      const ind=f.properties.NATURE==='Industrial';
+      return {color:ind?'#0077aa':'#006644',weight:1.2,fillColor:ind?'#00d4ff':'#39ff14',fillOpacity:buildingOpacity*.5+.05};
+    },
+    onEachFeature(f,lyr){
+      const p=f.properties, ind=p.NATURE==='Industrial';
+      lyr.bindPopup(`<div class="ph">${ind?'🏭':'🏠'} ${p.COMPANY||'?'} — ${p.NATURE}</div>
+        <div class="pr"><span class="pk">LOẠI</span><span class="pv ${ind?'blu':'g'}">${p.NATURE}</span></div>
+        <div class="pr"><span class="pk">CÔNG TY</span><span class="pv">${p.COMPANY||'—'}</span></div>`);
+      lyr.on('mouseover',function(){
+        this.setStyle({fillOpacity:.85,weight:2.5,color:ind?'#00d4ff':'#39ff14'});
+        showInfo('building',f);
+      });
+      lyr.on('mouseout',function(){ layers.building.resetStyle(this); });
+    }
+  }).addTo(map);
+
+  layers.road=L.geoJSON(GD.road,{
+    style:f=>({color:'rgba(57,255,20,0.3)',weight:f.properties.nbLanes==='2'?4:2.5,opacity:1,lineCap:'round',lineJoin:'round'}),
+    onEachFeature(f,lyr){
+      lyr.bindPopup(`<div class="ph">🛣 ĐƯỜNG</div><div class="pr"><span class="pk">SỐ LÀN</span><span class="pv">${f.properties.nbLanes||'?'}</span></div>`);
+      lyr.on('mouseover',function(){ this.setStyle({color:'rgba(57,255,20,.9)',weight:6}); showInfo('road',f); });
+      lyr.on('mouseout',function(){ layers.road.resetStyle(this); });
+    }
+  }).addTo(map);
+
+  layers.garbage=L.geoJSON(GD.garbadge,{
+    pointToLayer:(f,ll)=>L.marker(ll,{icon:mkGarbageIcon(), zIndexOffset:1000}),
+    onEachFeature(f,lyr){
+      const [lon,lat]=f.geometry.coordinates;
+      lyr.bindPopup(`<div class="ph">☣ BÃI RÁC CÔNG NGHIỆP</div>
+        <div class="pr"><span class="pk">KINH ĐỘ</span><span class="pv">${lon.toFixed(5)}°E</span></div>
+        <div class="pr"><span class="pk">VĨ ĐỘ</span><span class="pv">${lat.toFixed(5)}°N</span></div>
+        <div class="pr"><span class="pk">NGUY CƠ</span><span class="pv red">CAO ⚠</span></div>
+        <div class="pr"><span class="pk">LOẠI</span><span class="pv yel">Chất thải CN</span></div>`);
+      lyr.on('click',()=>showInfo('garbage',f));
+    }
+  }).addTo(map);
+}
+
+function mkGarbageIcon(){
+  return L.divIcon({
+    html:`<div style="width:34px;height:34px;position:relative">
+<svg width="34" height="34" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+  <circle cx="17" cy="17" r="15" fill="rgba(255,40,0,.12)" stroke="rgba(255,40,0,.5)" stroke-width="1" stroke-dasharray="4 2">
+    <animateTransform attributeName="transform" type="rotate" from="0 17 17" to="360 17 17" dur="12s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="17" cy="17" r="9" fill="rgba(255,40,0,.2)" stroke="#ff4400" stroke-width="1.5">
+    <animate attributeName="r" values="9;12;9" dur="2.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;0.4;1" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="17" cy="17" r="5" fill="rgba(255,60,0,.8)"/>
+  <text x="17" y="21.5" text-anchor="middle" font-size="11">☣</text>
+</svg></div>`,
+    iconSize:[34,34],iconAnchor:[17,17],className:''
+  });
+}
+
+function toggleLyr(key,el){
+  if(el.checked) layers[key].addTo(map); else map.removeLayer(layers[key]);
+}
+function setBuildingOpacity(v){
+  buildingOpacity=v/100;
+  layers.building.setStyle(f=>{
+    const ind=f.properties.NATURE==='Industrial';
+    return {fillOpacity:buildingOpacity*.5+.05,color:ind?'#0077aa':'#006644'};
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  INFO PANEL
+// ═══════════════════════════════════════════════════
+function showInfo(type,f){
+  const p=f.properties;
+  let html='';
+  if(type==='garbage'){
+    const [lon,lat]=f.geometry.coordinates;
+    html=`<div class="icard"><div class="itag t-r">☣ HAZARDOUS</div>
+      <div class="irow"><span class="ik">KINH ĐỘ</span><span class="iv">${lon.toFixed(5)}°E</span></div>
+      <div class="irow"><span class="ik">VĨ ĐỘ</span><span class="iv">${lat.toFixed(5)}°N</span></div>
+      <div class="irow"><span class="ik">NGUY CƠ</span><span class="iv red">CAO ⚠</span></div>
+    </div>`;
+  } else if(type==='building'){
+    const ind=p.NATURE==='Industrial';
+    html=`<div class="icard"><div class="itag ${ind?'t-b':'t-g'}">${ind?'🏭 CÔNG NGHIỆP':'🏠 DÂN CƯ'}</div>
+      <div class="irow"><span class="ik">LOẠI</span><span class="iv ${ind?'blu':'g'}">${p.NATURE}</span></div>
+      <div class="irow"><span class="ik">CÔNG TY</span><span class="iv">${p.COMPANY||'—'}</span></div>
+    </div>`;
+  } else if(type==='road'){
+    html=`<div class="icard"><div class="itag t-g">🛣 ĐƯỜNG</div>
+      <div class="irow"><span class="ik">LÀN XE</span><span class="iv">${p.nbLanes||'?'}</span></div>
+    </div>`;
+  }
+  document.getElementById('info-box').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+//  SPATIAL QUERIES
+// ═══════════════════════════════════════════════════
+function clearQ(){
+  qLayers.forEach(l=>map.removeLayer(l)); qLayers=[];
+  document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('sb-status').textContent='PostGIS Connected';
+}
+function dist(a,b){ const dx=(a[0]-b[0])*104043,dy=(a[1]-b[1])*111320; return Math.sqrt(dx*dx+dy*dy); }
+function polyCenter(rings){ const r=rings[0],n=r.length,s=r.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]); return [s[0]/n,s[1]/n]; }
+
+// Convex hull (Graham scan-ish simple version)
+function convexHull(pts){
+  if(pts.length<3) return pts;
+  pts=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cross=(O,A,B)=>(A[0]-O[0])*(B[1]-O[1])-(A[1]-O[1])*(B[0]-O[0]);
+  const lower=[],upper=[];
+  for(const p of pts){ while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop(); lower.push(p); }
+  for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop(); upper.push(p); }
+  upper.pop(); lower.pop();
+  return lower.concat(upper);
+}
+
+function runQ(type,btn){
+  clearQ();
+  if(type==='reset'){
+    document.getElementById('info-box').innerHTML='<div class="info-empty">━━━━━━━━━━━━━━━━━━━<br>[ SYSTEM OPERATIONAL ]<br>━━━━━━━━━━━━━━━━━━━<br>Hover / click vào<br>đối tượng bản đồ<br>để xem thông tin<br>━━━━━━━━━━━━━━━━━━━<br>PostGIS ready ✓</div>';
+    return;
+  }
+  btn.classList.add('on');
+  const gpts=GD.garbadge.features.map(f=>f.geometry.coordinates);
+  const blds=GD.building.features;
+  document.getElementById('sb-status').textContent='Đang chạy truy vấn...';
+
+  function addOneByOne(fc,style,delay,cb){
+    let i=0;
+    function next(){ if(i>=fc.features.length){ if(cb)cb(); return; }
+      const l=L.geoJSON({type:'FeatureCollection',features:[fc.features[i]]},style).addTo(map);
+      qLayers.push(l); i++; setTimeout(next,delay);
+    } next();
+  }
+
+  if(type==='buffer'){
+    gpts.forEach((gc,idx)=>{
+      setTimeout(()=>{
+        const c=L.circle([gc[1],gc[0]],{radius:50,color:'#ff2800',fillColor:'#ff2800',fillOpacity:.15,weight:1.5,dashArray:'5,4'}).addTo(map);
+        qLayers.push(c);
+      },idx*100);
+    });
+    setTimeout(()=>document.getElementById('sb-status').textContent=`Buffer 50m: ${gpts.length} vùng`,gpts.length*100+100);
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-r">☢ ST_BUFFER</div>
+<div class="sql"><span class="kw">SELECT</span>
+  <span class="fn">ST_Buffer</span>(
+    geom::<span class="kw">geography</span>,
+    50 <span class="co">-- 50 metres</span>
+  )::<span class="kw">geometry</span> <span class="kw">AS</span> buf
+<span class="kw">FROM</span> garbage;</div>
+<div class="irow"><span class="ik">BÁN KÍNH</span><span class="iv">50m</span></div>
+<div class="irow"><span class="ik">SỐ VÙNG</span><span class="iv">${gpts.length}</span></div>
+<div class="irow"><span class="ik">DIỆN TÍCH</span><span class="iv">~${(Math.PI*50*50).toFixed(0)}m² / vùng</span></div></div>`;
+
+  } else if(type==='nearest'){
+    const pairs=[];
+    gpts.forEach(gc=>{
+      let md=Infinity,nb=null;
+      blds.forEach(b=>{ const d=dist(gc,polyCenter(b.geometry.coordinates)); if(d<md){md=d;nb=b;} });
+      if(nb) pairs.push({gc,bc:polyCenter(nb.geometry.coordinates),bld:nb,d:md});
+    });
+    pairs.forEach((pair,idx)=>{
+      setTimeout(()=>{
+        const l=L.geoJSON({type:'FeatureCollection',features:[pair.bld]},{style:{color:'#ffd200',fillColor:'#ffd200',fillOpacity:.6,weight:2}}).addTo(map);
+        qLayers.push(l);
+        const line=L.polyline([[pair.gc[1],pair.gc[0]],[pair.bc[1],pair.bc[0]]],{color:'#ffd200',weight:1.5,dashArray:'5,4',opacity:.8}).addTo(map);
+        qLayers.push(line);
+      },idx*120);
+    });
+    setTimeout(()=>document.getElementById('sb-status').textContent=`Nearest: ${pairs.length} cặp tìm thấy`,pairs.length*120+100);
+    const avgDist=(pairs.reduce((s,p)=>s+p.d,0)/pairs.length).toFixed(1);
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-y">🎯 ST_DISTANCE</div>
+<div class="sql"><span class="kw">SELECT</span> b.*, <span class="fn">ST_Distance</span>(
+  b.geom::geography,
+  g.geom::geography
+) <span class="kw">AS</span> dist_m
+<span class="kw">FROM</span> buildings b,
+  garbage g
+<span class="kw">ORDER BY</span> dist_m <span class="kw">ASC</span>
+<span class="kw">LIMIT</span> 1 <span class="co">-- per garbage</span></div>
+<div class="irow"><span class="ik">SỐ CẶP</span><span class="iv">${pairs.length}</span></div>
+<div class="irow"><span class="ik">KHOẢNG TB</span><span class="iv yel">${avgDist}m</span></div></div>`;
+
+  } else if(type==='intersect'){
+    const inside=blds.filter(b=>gpts.some(gc=>dist(gc,polyCenter(b.geometry.coordinates))<=50));
+    gpts.forEach(gc=>{
+      const c=L.circle([gc[1],gc[0]],{radius:50,color:'#ff2800',fillColor:'#ff2800',fillOpacity:.1,weight:1,dashArray:'4,3'}).addTo(map);
+      qLayers.push(c);
+    });
+    addOneByOne({type:'FeatureCollection',features:inside},{style:{color:'#a855f7',fillColor:'#a855f7',fillOpacity:.65,weight:2}},40,
+      ()=>document.getElementById('sb-status').textContent=`Intersect: ${inside.length} tòa nhà trong vùng nguy hiểm`);
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-b">⚡ ST_INTERSECTS</div>
+<div class="sql"><span class="kw">SELECT</span> b.*
+<span class="kw">FROM</span> buildings b
+<span class="kw">JOIN</span> (
+  <span class="kw">SELECT</span> <span class="fn">ST_Buffer</span>(
+    geom::geography,50
+  )::geometry <span class="kw">AS</span> buf
+  <span class="kw">FROM</span> garbage
+) g <span class="kw">ON</span>
+  <span class="fn">ST_Intersects</span>(
+    b.geom, g.buf
+  );</div>
+<div class="irow"><span class="ik">TRONG VÙNG</span><span class="iv red">${inside.length} tòa nhà ⚠</span></div>
+<div class="irow"><span class="ik">NGUY CƠ</span><span class="iv red">TIẾP XÚC CAO</span></div></div>`;
+
+  } else if(type==='industrial'){
+    const fs=blds.filter(b=>b.properties.NATURE==='Industrial');
+    addOneByOne({type:'FeatureCollection',features:fs},{style:{color:'#00d4ff',fillColor:'#00d4ff',fillOpacity:.65,weight:2}},20,
+      ()=>document.getElementById('sb-status').textContent=`Industrial: ${fs.length} tòa nhà`);
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-b">🏭 INDUSTRIAL</div>
+<div class="sql"><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> buildings
+<span class="kw">WHERE</span> nature =
+  <span class="st">'Industrial'</span>;</div>
+<div class="irow"><span class="ik">KẾT QUẢ</span><span class="iv blu">${fs.length} tòa nhà</span></div></div>`;
+
+  } else if(type==='residential'){
+    const fs=blds.filter(b=>b.properties.NATURE==='Residential');
+    addOneByOne({type:'FeatureCollection',features:fs},{style:{color:'#39ff14',fillColor:'#39ff14',fillOpacity:.55,weight:2}},15,
+      ()=>document.getElementById('sb-status').textContent=`Residential: ${fs.length} tòa nhà`);
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-g">🏠 RESIDENTIAL</div>
+<div class="sql"><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> buildings
+<span class="kw">WHERE</span> nature =
+  <span class="st">'Residential'</span>;</div>
+<div class="irow"><span class="ik">KẾT QUẢ</span><span class="iv">${fs.length} tòa nhà</span></div></div>`;
+
+  } else if(type==='convex'){
+    const gcoords=GD.garbadge.features.map(f=>f.geometry.coordinates);
+    const hull=convexHull(gcoords);
+    const hullLL=hull.map(c=>[c[1],c[0]]);
+    hullLL.push(hullLL[0]);
+    const poly=L.polygon(hullLL,{color:'#ffd200',fillColor:'#ffd200',fillOpacity:.12,weight:2,dashArray:'8,4'}).addTo(map);
+    qLayers.push(poly);
+    gcoords.forEach(gc=>{
+      const c=L.circleMarker([gc[1],gc[0]],{radius:4,color:'#ff2800',fillColor:'#ff2800',fillOpacity:1,weight:0}).addTo(map);
+      qLayers.push(c);
+    });
+    document.getElementById('sb-status').textContent=`ConvexHull: ${hull.length} đỉnh`;
+    document.getElementById('info-box').innerHTML=`<div class="icard"><div class="itag t-y">🔷 CONVEX HULL</div>
+<div class="sql"><span class="kw">SELECT</span>
+  <span class="fn">ST_ConvexHull</span>(
+    <span class="fn">ST_Collect</span>(geom)
+  ) <span class="kw">AS</span> hull
+<span class="kw">FROM</span> garbage;</div>
+<div class="irow"><span class="ik">SỐ ĐỈNH</span><span class="iv yel">${hull.length}</span></div>
+<div class="irow"><span class="ik">MÔ TẢ</span><span class="iv">Bao lồi bãi rác</span></div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  CANVAS ANIMATIONS
+// ═══════════════════════════════════════════════════
+let W,H,ctx2;
+let showTraffic=true, showParticles=true;
+let particles=[], traffic=[], pulses=[];
+let frame=0;
+
+const ROAD_COORDS=GD.road.features.map(f=>f.geometry.coordinates);
+
+function initCanvas(){
+  const cv=document.getElementById('canvas-over');
+  ctx2=cv.getContext('2d');
+  function resize(){ W=cv.width=cv.offsetWidth; H=cv.height=cv.offsetHeight; }
+  resize(); new ResizeObserver(resize).observe(cv);
+  spawnAllParticles();
+  spawnAllTraffic();
+  loop();
+}
+
+// ── PARTICLES ──
+function spawnAllParticles(){
+  particles=[];
+  GD.garbadge.features.forEach(f=>{
+    for(let i=0;i<28;i++) spawnParticle(f.geometry.coordinates);
+  });
+}
+
+function spawnParticle(origin){
+  const spread=0.00025;
+  const hue=75+Math.random()*45; // toxic green/yellow
+  particles.push({
+    lon:origin[0]+(Math.random()-.5)*spread,
+    lat:origin[1]+(Math.random()-.5)*spread,
+    vlon:(Math.random()-.5)*0.000008,
+    vlat:(Math.random()-.25)*0.000008,
+    life:Math.random(),
+    maxLife:.5+Math.random()*.5,
+    size:1+Math.random()*2.5,
+    hue,
+    origin,
+  });
+}
+
+function updateParticles(){
+  for(const p of particles){
+    p.lon+=p.vlon; p.lat+=p.vlat; p.life-=0.003;
+    if(p.life<=0){ const o=p.origin; p.lon=o[0]+(Math.random()-.5)*.00025; p.lat=o[1]+(Math.random()-.5)*.00025; p.vlon=(Math.random()-.5)*.000008; p.vlat=(Math.random()-.25)*.000008; p.life=p.maxLife; }
+  }
+}
+
+function drawParticles(){
+  if(!showParticles||!map) return;
+  particles.forEach(p=>{
+    const pt=map.latLngToContainerPoint([p.lat,p.lon]);
+    const alpha=Math.min(p.life/p.maxLife,1)*0.7;
+    ctx2.beginPath(); ctx2.arc(pt.x,pt.y,p.size,0,Math.PI*2);
+    ctx2.fillStyle=`hsla(${p.hue},100%,55%,${alpha})`; ctx2.fill();
+  });
+  document.getElementById('sb-particles').textContent=`Particles: ${particles.length}`;
+}
+
+// ── TRAFFIC ──
+function spawnAllTraffic(){
+  traffic=[];
+  ROAD_COORDS.forEach((road,ri)=>{
+    const n=1+Math.floor(Math.random()*2);
+    for(let i=0;i<n;i++){
+      const speed=(0.002+Math.random()*.006)*(Math.random()<.5?1:-1);
+      traffic.push({ road, progress:Math.random(), speed, size:1.8+Math.random()*1.8,
+        color:Math.random()<.55?'#39ff14':'#00d4ff', tail:[] });
+    }
+  });
+}
+
+function ptOnRoad(road,t){
+  t=((t%1)+1)%1;
+  const ts=road.length-1, si=Math.min(Math.floor(t*ts),ts-1), f=t*ts-si;
+  const a=road[si],b=road[si+1];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f];
+}
+
+function updateTraffic(){
+  traffic.forEach(d=>{ d.progress+=d.speed; if(d.progress>1)d.progress-=1; if(d.progress<0)d.progress+=1; const c=ptOnRoad(d.road,d.progress); d.tail.unshift({lon:c[0],lat:c[1]}); if(d.tail.length>10)d.tail.pop(); });
+}
+
+function drawTraffic(){
+  if(!showTraffic||!map) return;
+  const hexToRgb=h=>{ const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return `${r},${g},${b}`; };
+  traffic.forEach(d=>{
+    if(!d.tail.length) return;
+    const rgb=hexToRgb(d.color);
+    // Tail
+    d.tail.forEach((t,i)=>{ if(i===0)return; const pt=map.latLngToContainerPoint([t.lat,t.lon]); const a=(1-i/d.tail.length)*0.5; ctx2.beginPath(); ctx2.arc(pt.x,pt.y,d.size*.5,0,Math.PI*2); ctx2.fillStyle=`rgba(${rgb},${a})`; ctx2.fill(); });
+    // Head
+    const h=d.tail[0]; const pt=map.latLngToContainerPoint([h.lat,h.lon]);
+    ctx2.beginPath(); ctx2.arc(pt.x,pt.y,d.size,0,Math.PI*2);
+    ctx2.fillStyle=`rgba(${rgb},0.9)`; ctx2.shadowColor=d.color; ctx2.shadowBlur=8; ctx2.fill(); ctx2.shadowBlur=0;
+  });
+}
+
+// ── PULSE RINGS ──
+function updatePulses(){
+  frame++;
+  if(frame%45===0){
+    GD.garbadge.features.forEach(f=>{
+      pulses.push({coords:f.geometry.coordinates,r:0,maxR:110,speed:1.5});
+    });
+  }
+  for(let i=pulses.length-1;i>=0;i--){
+    pulses[i].r+=pulses[i].speed;
+    if(pulses[i].r>=pulses[i].maxR) pulses.splice(i,1);
+  }
+}
+
+function drawPulses(){
+  if(!map) return;
+  pulses.forEach(p=>{
+    const pt=map.latLngToContainerPoint([p.coords[1],p.coords[0]]);
+    const a=1-p.r/p.maxR;
+    ctx2.beginPath(); ctx2.arc(pt.x,pt.y,p.r,0,Math.PI*2);
+    ctx2.strokeStyle=`rgba(255,40,0,${a*.5})`; ctx2.lineWidth=1.5; ctx2.stroke();
+  });
+}
+
+function loop(){
+  ctx2.clearRect(0,0,W,H);
+  updateParticles(); updateTraffic(); updatePulses();
+  drawPulses(); drawParticles(); drawTraffic();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════
+//  WIND ROSE
+// ═══════════════════════════════════════════════════
+function drawWindRose(angle){
+  const cv=document.getElementById('wind-canvas');
+  const c=cv.getContext('2d');
+  const cx=40,cy=40,r=30;
+  c.clearRect(0,0,80,80);
+  // Outer ring
+  c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2);
+  c.strokeStyle='rgba(57,255,20,.2)'; c.lineWidth=1; c.stroke();
+  c.beginPath(); c.arc(cx,cy,r*.6,0,Math.PI*2);
+  c.strokeStyle='rgba(57,255,20,.12)'; c.lineWidth=1; c.stroke();
+  // Cardinal lines
+  ['N','E','S','W'].forEach((d,i)=>{
+    const a=i*Math.PI/2-Math.PI/2;
+    c.beginPath(); c.moveTo(cx+r*.65*Math.cos(a),cy+r*.65*Math.sin(a)); c.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));
+    c.strokeStyle='rgba(57,255,20,.3)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='rgba(57,255,20,.4)'; c.font='7px JetBrains Mono,monospace'; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(d,cx+(r+8)*Math.cos(a),cy+(r+8)*Math.sin(a));
+  });
+  // Wind arrow
+  const ar=angle*Math.PI/180;
+  const x2=cx+r*.7*Math.cos(ar-Math.PI/2), y2=cy+r*.7*Math.sin(ar-Math.PI/2);
+  const x1=cx+r*.3*Math.cos(ar+Math.PI/2), y1=cy+r*.3*Math.sin(ar+Math.PI/2);
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2);
+  c.strokeStyle='rgba(255,40,0,.8)'; c.lineWidth=2; c.lineCap='round'; c.stroke();
+  // Head
+  c.beginPath(); c.arc(x2,y2,3,0,Math.PI*2); c.fillStyle='rgba(255,40,0,.9)'; c.fill();
+  // Center dot
+  c.beginPath(); c.arc(cx,cy,2.5,0,Math.PI*2); c.fillStyle='rgba(57,255,20,.7)'; c.fill();
+  // Label
+  c.fillStyle='rgba(57,255,20,.3)'; c.font='7px JetBrains Mono,monospace'; c.textAlign='center';
+  c.fillText(`${Math.round(angle)}°`,cx,cy+r+14);
+}
+</script>
+</body>
+</html>
