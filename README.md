@@ -63,9 +63,3 @@ python app.py  →  http://localhost:5000
 | GET /api/query/nearby-buildings?radius=200 | ST_DWithin |
 | GET /api/query/buffer?radius=100 | ST_Buffer |
 | GET /api/query/nearest-road | Nearest road per garbage |
-
-## Truy vấn SQL thường gặp (thầy hay hỏi)
-- ST_Distance, ST_DWithin, ST_Buffer, ST_Within, ST_Intersects
-- ST_Transform (32648 → 4326), ST_AsGeoJSON
-- ST_Centroid, ST_ConvexHull, ST_Union, ST_Extent
-- Nearest neighbor: ORDER BY geom <-> geom LIMIT 1
